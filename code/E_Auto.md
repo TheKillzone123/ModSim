@@ -62,6 +62,12 @@ equation
   connect(plan.present, batt.present)
     annotation (Line(points={{-28,70},{0,70},{0,25},{7.5,25}},color={255,0,255}));
 
+  connect(plan.setSOC, batt.setSOC)
+    annotation (Line(points={{-28,55},{-15,55},{-15,35},{7.5,35}},color={255,0,255}));
+
+  connect(plan.SOC_set_val, batt.SOC_set_val)
+    annotation (Line(points={{-28,40},{-20,40},{-20,45},{7.5,45}},color={0,0,127}));
+
   connect(P_soll, batt.P_soll)
     annotation (Line(points={{-110,0},{0,0},{0,15},{7.5,15}},color={0,0,127}));
 
