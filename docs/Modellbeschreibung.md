@@ -53,6 +53,25 @@ flowchart TD
    fb --> ems
 ```
 
+### Eingesetzte Hardware und Datenblattabgleich
+
+Die folgenden Komponenten sind im realen System eingesetzt und wurden gegen Herstellerdatenblaetter abgeglichen:
+
+- Kommunikation: Sunny Home Manager 2.0
+   - Datenblatt: https://files.sma.de/downloads/HM-20-DS-de-50.pdf
+- Batterie-Wechselrichter: Sunny Boy Storage 2.5
+   - Datenblatt: https://files.sma.de/downloads/SBS25-1VL-10-DS-de-30.pdf
+- PV-Wechselrichter: Sunny Tripower 10.0 (STP10.0-3AV-40)
+   - Datenblatt: https://files.sma.de/downloads/STP8-10-3AV-40-DS-de-40.pdf
+- Ladestation: SMA EV CHARGER 22
+   - Datenblatt: https://files.sma.de/downloads/EVC-10-DS-de-10.pdf
+
+Abgleich der Modellparameter:
+
+- Hausbatterie-Leistung auf 2,5 kW Laden/Entladen gesetzt (SBS 2.5).
+- Wallbox-Leistung 22 kW als Hardwaregrenze aufgenommen.
+- Effektive EV-Ladeleistung bleibt auf 11 kW begrenzt, da das Fahrzeuglimit kleiner als das Wallboxlimit ist.
+
 #### **Komponenten im Detail:**
 
 1. **InputFunktion_V2**: Zeitgesteuerter Datengenerator
@@ -275,8 +294,10 @@ flowchart TD
 
 **Standardparameter** (aus HausSystem_V3):
 - Hausbatterie: 5,1 kWh, Start-SOC 50%
+- Hausbatterie-Leistung: 2,5 kW Laden / 2,5 kW Entladen
 - E-Auto: 66,5 kWh, Start-SOC 40%, V2G **deaktiviert** (Standard)
-- Netz: Max. Import 6 kW, Max. Export 10 kW
+- Ladeleistung EV: 22 kW Wallbox-Hardware, 11 kW effektiv (Fahrzeuglimit)
+- Netz: Max. Import 10 kW, Max. Export 10 kW
 - EV-Ladeschwelle: 1500 W Überschuss
 
 **Szenarien definierbar durch:**
@@ -372,8 +393,8 @@ Hinweis zur automatischen Simulationsdauer:
 | `P_Last_out` | [W] | Haushaltslast | 100–6000 W |
 | `SOC_Batt_out` | [0..1] | Batterie-Ladezustand | 0,05–0,95 |
 | `SOC_EV_out` | [0..1] | EV-Batterie-SOC | 0,1–0,95 |
-| `P_Batt_soll` | [W] | EMS-Befehl an Batterie | ±3000 W |
-| `P_EV_soll` | [W] | EMS-Befehl an E-Auto | ±11000 W |
+| `P_Batt_soll` | [W] | EMS-Befehl an Batterie | ±2500 W |
+| `P_EV_soll` | [W] | EMS-Befehl an E-Auto | ±11000 W (effektiv, Wallbox 22 kW) |
 | `P_Grid_soll` | [W] | Netzausgleich | ±6000 W (Import) / ±10000 W (Export) |
 | `Autarkie` | [%] | **Autarkiegrad (momentan)** | 0–100% |
 | `Autarkie_kumuliert` | [%] | **Autarkiegrad (über Gesamtzeitraum)** | 0–100% |
@@ -485,6 +506,10 @@ else
 - **System-Spezifizierung**: Komponenten- und Anlagendaten aus dem realen Haushaltssetup
 - **Komponentenparameter**: Prioritaer aus Herstellerdatenblaettern; fehlende Werte als begruendete Annahmen (z.B. Wirkungsgrade)
 - **Fahrzeugparameter**: BMW iX2 als Referenzfahrzeug; V2G wird als Modellannahme zugelassen (auch wenn dies fahrzeug-/marktseitig nicht in jedem Setup verfuegbar ist)
+- **Sunny Home Manager 2.0 Datenblatt**: https://files.sma.de/downloads/HM-20-DS-de-50.pdf
+- **Sunny Boy Storage 2.5 Datenblatt**: https://files.sma.de/downloads/SBS25-1VL-10-DS-de-30.pdf
+- **Sunny Tripower 8.0/10.0 Datenblatt**: https://files.sma.de/downloads/STP8-10-3AV-40-DS-de-40.pdf
+- **SMA EV CHARGER Datenblatt**: https://files.sma.de/downloads/EVC-10-DS-de-10.pdf
 
 ### Verwendete Bibliotheken:
 
@@ -514,6 +539,7 @@ else
 
 | Version | Datum | Änderungen |
 |---------|-------|-----------|
+| 1.1 | 2026-06-21 | Datenblattabgleich SMA-Hardware, Parameteranpassung, Dokumentation Autarkie im Fließtext |
 | 1.0 | 2026-06-21 | Initiale Dokumentation nach Copilot-Instructions |
 
 ---

@@ -38,9 +38,9 @@ model HausSystem_V3
     annotation (Dialog(group="Haus"));
   parameter Real SOC_batt_max = 0.95 "Oberes SOC-Limit Hausbatterie (wie BatterieEinfach.SOC_max)"
     annotation (Dialog(group="Haus"));
-  parameter Real P_batt_laden_max = 2300 "Max Ladeleistung Batterie [W]"
+  parameter Real P_batt_laden_max = 2500 "Max Ladeleistung Batterie [W]"
     annotation (Dialog(group="Haus"));
-  parameter Real P_batt_entladen_max = 3000 "Max Entladeleistung Batterie [W]"
+  parameter Real P_batt_entladen_max = 2500 "Max Entladeleistung Batterie [W]"
     annotation (Dialog(group="Haus"));
   parameter Real eta_batt_laden = 0.95 "Wirkungsgrad Laden Batterie"
     annotation (Dialog(group="Haus"));
@@ -73,7 +73,12 @@ model HausSystem_V3
     annotation (Dialog(group="EV"));
   parameter Real SOC0_EV = 0.4 "Start-SOC EV [0..1]"
     annotation (Dialog(group="EV"));
-  parameter Real P_ev_laden_max = 11000 "Max. EV Ladeleistung [W]"
+  parameter Real P_wallbox_laden_max = 22000 "Max. Ladeleistung Wallbox SMA EV CHARGER 22 [W]"
+    annotation (Dialog(group="EV"));
+  parameter Real P_ev_laden_max = 11000 "Max. EV Ladeleistung fahrzeugseitig [W]"
+    annotation (Dialog(group="EV"));
+  parameter Real P_ev_laden_effektiv_max = min(P_wallbox_laden_max, P_ev_laden_max)
+    "Effektive EV-Ladeleistung aus Wallbox- und Fahrzeuglimit [W]"
     annotation (Dialog(group="EV"));
   parameter Real SOC_EV_min_laden = 0.30 "EV soll bei Anwesenheit auf mind. diesen SOC geladen werden [0..1]"
     annotation (Dialog(group="EV"));
@@ -111,7 +116,7 @@ model HausSystem_V3
     v2gAktiv = v2gAktiv,
     kapazitaet_Wh = kapazitaet_EV_Wh,
     SOC0 = SOC0_EV,
-    P_laden_max = P_ev_laden_max)
+    P_laden_max = P_ev_laden_effektiv_max)
     annotation (Placement(transformation(extent={{-70,40},{-30,70}})));
 
   // EMS passend zur "nie gleichzeitig laden/entladen" Version
@@ -128,7 +133,7 @@ model HausSystem_V3
     P_ev_entladen_max = P_ev_entladen_max,
     SOC_EV_min_laden = SOC_EV_min_laden,
     P_ev_schwelle_laden = P_ev_schwelle_laden,
-    P_ev_laden_max = P_ev_laden_max,
+    P_ev_laden_max = P_ev_laden_effektiv_max,
 
     netzAktiv = netzAktiv,
     P_netz_max_import = P_netz_max_import,

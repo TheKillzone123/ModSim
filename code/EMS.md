@@ -6,8 +6,8 @@ model EMS
   parameter Real SOC_batt_min_entladen = 0.05 "Hausbatt: nicht unter diesen SOC entladen (Batterie SOC_min)";
   parameter Real SOC_batt_min_laden = 0.30 "Hausbatt: Schnell laden falls SOC < [0..1]";
   parameter Real SOC_batt_max_laden = 0.80 "Hausbatt: Lade-Stopp ab SOC >= [0..1]";
-  parameter Real P_batt_laden_max = 3000 "Hausbatt: Max Ladeleistung [W]";
-  parameter Real P_batt_entladen_max = 3000 "Hausbatt: Max Entladeleistung [W]";
+  parameter Real P_batt_laden_max = 2500 "Hausbatt: Max Ladeleistung [W]";
+  parameter Real P_batt_entladen_max = 2500 "Hausbatt: Max Entladeleistung [W]";
 
   // EV / V2G
   parameter Boolean v2gAktiv = false "V2G erlauben";

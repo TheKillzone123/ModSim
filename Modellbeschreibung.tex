@@ -11,6 +11,8 @@
 \usepackage[utf8]{inputenc}
 \usepackage{booktabs}
 \usepackage{url}
+\usepackage{tabularx}
+\graphicspath{{docs/figuren/}}
 
 \def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
     T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
@@ -20,7 +22,7 @@
 \title{Modellierung der Haushalts-Autarkie\\ 
 {\footnotesize Energiesimulation mit PV-Anlage, Batteriespeicher und Elektrofahrzeug}}
 
-\author{\IEEEauthorblockN{Modellierungsingenieur}
+\author{\IEEEauthorblockN{Maximilian Berkemeier}
 \IEEEauthorblockA{Energiesimulation\\
 Modellierungsprojekt ModSim\\
 2026}
@@ -81,17 +83,39 @@ Das Modell dient \textbf{nicht} zur Optimierung von Kosten oder wirtschaftlichen
 
 Das Gesamtmodell \texttt{HausSystem\_V3} orchestriert vier Hauptkomponenten:
 
-\begin{verbatim}
-InputFunktion_V2 (Zeitprofile)
-       ↓
-  [PV, Last]
-       ↓
-  EMS (Regeleinheit)
-  ↙   ↓   ↘
-Batterie EV Netz
-  ↑   ↓   ↓
-  └─ Feedback (SOC, Präsenz)
-\end{verbatim}
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\columnwidth]{architektur.png}
+\caption{Systemarchitektur von HausSystem\_V3}
+\label{fig:architektur}
+\end{figure}
+
+\subsection{Eingesetzte Hardware und Datenblattabgleich}
+
+\begin{table}[h]
+\caption{Eingesetzte Hardware mit Datenblattquellen}
+\centering
+\footnotesize
+\begin{tabularx}{\columnwidth}{@{}p{2.2cm}p{2.0cm}X@{}}
+\toprule
+\textbf{Kategorie} & \textbf{Komponente} & \textbf{Datenblatt / Quelle} \\
+\midrule
+Kommunikation & Sunny Home Manager 2.0 & siehe \cite{SMA_HM20_DS} \\
+Wechselrichter (Batterie) & Sunny Boy Storage 2.5 & siehe \cite{SMA_SBS25_DS} \\
+Wechselrichter (PV) & Sunny Tripower 10.0 (STP10.0-3AV-40) & siehe \cite{SMA_STP810_DS} \\
+Ladestation & SMA EV CHARGER 22 & siehe \cite{SMA_EVC_DS} \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Abgleich der Modellparameter mit den Datenblättern:
+\begin{itemize}
+\item \textbf{Sunny Boy Storage 2.5}: Lade-/Entladeleistung im Modell auf 2500\,W gesetzt (vorher 2300\,W/3000\,W).
+\item \textbf{SMA EV CHARGER 22}: Wallboxlimit im Modell als 22000\,W ergänzt (\texttt{P\_wallbox\_laden\_max}).
+\item \textbf{Fahrzeuglimit BMW iX2}: effektive Ladeleistung bleibt auf 11000\,W begrenzt; im Modell wird daher
+\(P_{\text{ev,eff}} = \min(P_{\text{wallbox}}, P_{\text{fahrzeug}})\) verwendet.
+\item \textbf{Sunny Tripower 10.0}: 10\,kW-Geräteklasse ist als Referenz in der Quellenlage ergänzt; die PV-Eingangsprofile bleiben Last-/Erzeugungsdaten-getrieben.
+\end{itemize}
 
 \subsection{Komponenten im Detail}
 
@@ -162,6 +186,13 @@ Das EMS implementiert eine Prioritätskaskade:
 \item \textbf{Restausgleich}: Netzimport/Export
 \end{enumerate}
 
+\begin{figure}[htbp]
+\centering
+\includegraphics[width=\columnwidth]{ems_ablauf.png}
+\caption{Priorisierter EMS-Entscheidungsablauf}
+\label{fig:ems_ablauf}
+\end{figure}
+
 \subsection{Autarkiegrad-Berechnung}
 
 Das EMS berechnet bei jedem Zeitschritt:
@@ -176,6 +207,30 @@ Das EMS berechnet bei jedem Zeitschritt:
 \end{equation}
 
 Dies stellt das integrale Verhältnis von Gesamtnetzbezug zu Gesamtverbrauch dar und ist der \textbf{Hauptkennwert} für die Autarkie-Untersuchung.
+
+Technische Implementierung im Modell \texttt{HausSystem\_V3}:
+
+\textbf{Integratoren}
+\begin{verbatim}
+Real energie_verbrauch_Wh(start=0, fixed=true);
+Real energie_netz_bezug_Wh(start=0, fixed=true);
+\end{verbatim}
+
+\textbf{Differentialgleichungen}
+\begin{align}
+\frac{d(\text{energie\_verbrauch\_Wh})}{dt} &= \frac{P_{\text{Last}}}{3600} \\
+\frac{d(\text{energie\_netz\_bezug\_Wh})}{dt} &= \frac{\max(P_{\text{Grid}}, 0)}{3600}
+\end{align}
+
+\textbf{Ausgabegröße}
+\begin{equation}
+\text{autarkie\_kumuliert} = \begin{cases}
+100 \times (1 - \text{energie\_netz\_bezug\_Wh} / \text{energie\_verbrauch\_Wh}) & \text{wenn} \, \text{energie\_verbrauch\_Wh} > 1 \\
+0 & \text{sonst}
+\end{cases}
+\end{equation}
+
+Die Variable wird direkt auf \texttt{Autarkie\_kumuliert\_out} ausgegeben und ist waehrend der gesamten Simulation sowie als Endwert verfuegbar.
 
 \section{Modellverkuerzung}
 
@@ -194,7 +249,8 @@ Dies stellt das integrale Verhältnis von Gesamtnetzbezug zu Gesamtverbrauch dar
 \begin{table}[h]
 \caption{Abstraktionsgrad nach Modellierungsaspekt}
 \centering
-\begin{tabular}{p{3cm}p{3cm}p{3cm}}
+\footnotesize
+\begin{tabularx}{\columnwidth}{@{}p{1.8cm}p{2.0cm}X@{}}
 \toprule
 \textbf{Aspekt} & \textbf{Grad} & \textbf{Bemerkung} \\
 \midrule
@@ -205,7 +261,7 @@ Laden/Entladen & Leistungsbegrenzer & SOC-abhängig, V2G-konditioniert \\
 Netzanbindung & Ein/Aus-Begrenzer & Import/Export-Maxima, keine Impedanz \\
 EMS-Regelung & Heuristische Kaskade & Nicht-optimal, aber interpretierbar \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \end{table}
 
 \subsection{Annahmen und Voraussetzungen}
@@ -251,7 +307,8 @@ experiment(
 \begin{table}[h]
 \caption{Modell-Ausgänge und typische Wertebereiche}
 \centering
-\begin{tabular}{lccl}
+\footnotesize
+\begin{tabularx}{\columnwidth}{@{}p{2.2cm}p{0.8cm}p{1.1cm}X@{}}
 \toprule
 \textbf{Ausgang} & \textbf{Einheit} & \textbf{Bereich} & \textbf{Bedeutung} \\
 \midrule
@@ -259,13 +316,13 @@ experiment(
 \texttt{P\_Last\_out} & W & 100--6000 & Haushaltslast \\
 \texttt{SOC\_Batt\_out} & -- & 0,05--0,95 & Batterie-SOC \\
 \texttt{SOC\_EV\_out} & -- & 0,1--0,95 & EV-Batterie-SOC \\
-\texttt{P\_Batt\_soll} & W & $\pm$3000 & Batterie-Sollleistung \\
-\texttt{P\_EV\_soll} & W & $\pm$11000 & EV-Sollleistung \\
+\texttt{P\_Batt\_soll} & W & $\pm$2500 & Batterie-Sollleistung (SBS 2.5) \\
+\texttt{P\_EV\_soll} & W & $\pm$11000 & EV-Sollleistung (effektiv, Wallbox-HW 22 kW) \\
 \texttt{P\_Grid\_soll} & W & $\pm$6000/10000 & Netzausgleich \\
 \texttt{Autarkie} & \% & 0--100 & Momentaner Autarkiegrad \\
 \texttt{Autarkie\_kumuliert} & \% & 0--100 & \textbf{Kumulierte Autarkie} \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \end{table}
 
 \subsection{Sinnvollheit der Ergebnisse}
@@ -301,6 +358,100 @@ experiment(
 \item \textbf{V2G-Effekt}: Mit V2G aktiv sollte kumulierte Autarkie höher sein als ohne
 \end{enumerate}
 
+\subsection{Vergleich der Simulationsvarianten (1 Woche je Durchlauf)}
+
+Alle Varianten verwenden denselben Modellaufbau \texttt{HausSystem\_V3} (Aufbau Z).
+
+\textbf{Gemeinsame Standardparameter (für alle 4 Durchläufe):}
+\begin{itemize}
+\item Simulationsdauer: 7 Tage (604800 s)
+\item Start-SOC Hausbatterie: 50\,\% (\texttt{SOC0\_Batt = 0.5})
+\item Start-SOC EV-Batterie: 40\,\% (\texttt{SOC0\_EV = 0.4})
+\item Hausbatterie: 5,1 kWh, 2,5 kW Laden/Entladen
+\item EV-Ladeleistung effektiv: 11 kW (min aus Wallbox 22 kW und Fahrzeuglimit)
+\item Identische Last- und PV-Tabellenstruktur; nur Saison- und V2G-Parameter variieren
+\end{itemize}
+
+\subsubsection{Variante 1: Sommer, ohne V2G}
+\textbf{Durchlaufspezifische Parameter:}
+\begin{itemize}
+\item \texttt{nutzeSommer = true}
+\item \texttt{v2gAktiv = false}
+\end{itemize}
+
+\begin{figure}[htbp]
+\centering
+\IfFileExists{vergleich_sommer_ohne_v2g.png}{%
+  \includegraphics[width=\columnwidth]{vergleich_sommer_ohne_v2g.png}%
+}{%
+  \fbox{\parbox{0.95\columnwidth}{\centering Platzhalter Ergebnisgraph\\Dateiname: vergleich\_sommer\_ohne\_v2g.png}}
+}
+\caption{Ergebnisgraph: Sommer, ohne V2G}
+\label{fig:vergleich_sommer_ohne_v2g}
+\end{figure}
+
+\textbf{Erklärung des Graphen:} Platzhalter fuer eigene Interpretation.
+
+\subsubsection{Variante 2: Sommer, mit V2G}
+\textbf{Durchlaufspezifische Parameter:}
+\begin{itemize}
+\item \texttt{nutzeSommer = true}
+\item \texttt{v2gAktiv = true}
+\end{itemize}
+
+\begin{figure}[htbp]
+\centering
+\IfFileExists{vergleich_sommer_mit_v2g.png}{%
+  \includegraphics[width=\columnwidth]{vergleich_sommer_mit_v2g.png}%
+}{%
+  \fbox{\parbox{0.95\columnwidth}{\centering Platzhalter Ergebnisgraph\\Dateiname: vergleich\_sommer\_mit\_v2g.png}}
+}
+\caption{Ergebnisgraph: Sommer, mit V2G}
+\label{fig:vergleich_sommer_mit_v2g}
+\end{figure}
+
+\textbf{Erklärung des Graphen:} Platzhalter fuer eigene Interpretation.
+
+\subsubsection{Variante 3: Winter, ohne V2G}
+\textbf{Durchlaufspezifische Parameter:}
+\begin{itemize}
+\item \texttt{nutzeSommer = false}
+\item \texttt{v2gAktiv = false}
+\end{itemize}
+
+\begin{figure}[htbp]
+\centering
+\IfFileExists{vergleich_winter_ohne_v2g.png}{%
+  \includegraphics[width=\columnwidth]{vergleich_winter_ohne_v2g.png}%
+}{%
+  \fbox{\parbox{0.95\columnwidth}{\centering Platzhalter Ergebnisgraph\\Dateiname: vergleich\_winter\_ohne\_v2g.png}}
+}
+\caption{Ergebnisgraph: Winter, ohne V2G}
+\label{fig:vergleich_winter_ohne_v2g}
+\end{figure}
+
+\textbf{Erklärung des Graphen:} Platzhalter fuer eigene Interpretation.
+
+\subsubsection{Variante 4: Winter, mit V2G}
+\textbf{Durchlaufspezifische Parameter:}
+\begin{itemize}
+\item \texttt{nutzeSommer = false}
+\item \texttt{v2gAktiv = true}
+\end{itemize}
+
+\begin{figure}[htbp]
+\centering
+\IfFileExists{vergleich_winter_mit_v2g.png}{%
+  \includegraphics[width=\columnwidth]{vergleich_winter_mit_v2g.png}%
+}{%
+  \fbox{\parbox{0.95\columnwidth}{\centering Platzhalter Ergebnisgraph\\Dateiname: vergleich\_winter\_mit\_v2g.png}}
+}
+\caption{Ergebnisgraph: Winter, mit V2G}
+\label{fig:vergleich_winter_mit_v2g}
+\end{figure}
+
+\textbf{Erklärung des Graphen:} Platzhalter fuer eigene Interpretation.
+
 \section{Zusätzliches, Besonderheiten, Auffälligkeiten, Offene Fragen}
 
 \subsection{Besonderheiten}
@@ -330,6 +481,7 @@ experiment(
 \item \textbf{System-Spezifizierung}: Komponenten- und Anlagendaten aus dem realen Haushaltssetup
 \item \textbf{Komponentenparameter}: Prioritär aus Herstellerdatenblättern; fehlende Werte als begründete Annahmen
 \item \textbf{Fahrzeugparameter}: BMW iX2 als Referenzfahrzeug; V2G als Modellannahme
+\item \textbf{SMA-Hardware-Datenblätter}: siehe Literaturverzeichnis \cite{SMA_HM20_DS,SMA_SBS25_DS,SMA_STP810_DS,SMA_EVC_DS}
 \end{itemize}
 
 \subsection{Verwendete Bibliotheken}
@@ -357,14 +509,29 @@ VS Code + Modelica-Ext. & Editor & Syntax-Highlighting \\
 \end{tabular}
 \end{table}
 
-\subsection{Empfohlene Literatur}
+\subsection{Literaturverzeichnis}
 
-\begin{itemize}
-\item Weniger, F., Bergner, M., Quaschning, V. (2019): \textit{Sizing of residential PV battery systems}. Solar Energy, Vol. 191, pp. 469--482.
-\item Gupta, A., Saini, M., Sharma, V. (2021): \textit{Vehicle-to-Grid: Challenges and Opportunities}. IEEE Access, Vol. 9, pp. 127\,606--127\,618.
-\item Modelica Association: \textit{Modelica Language Specification v4.0}. \url{www.modelica.org}
-\item VDEW: \textit{Standard-Lastprofile für den Stromverbrauch in Haushalten}. Technische Dokumentation.
-\end{itemize}
+\begin{thebibliography}{00}
+\bibitem{SMA_HM20_DS}
+SMA Solar Technology AG, \textit{Sunny Home Manager 2.0 -- Datenblatt (HM-20-DS-de-50)},
+Online verfuegbar unter: \url{https://files.sma.de/downloads/HM-20-DS-de-50.pdf},
+abgerufen am 21.06.2026.
+
+\bibitem{SMA_SBS25_DS}
+SMA Solar Technology AG, \textit{Sunny Boy Storage 2.5 -- Datenblatt (SBS25-1VL-10-DS-de-30)},
+Online verfuegbar unter: \url{https://files.sma.de/downloads/SBS25-1VL-10-DS-de-30.pdf},
+abgerufen am 21.06.2026.
+
+\bibitem{SMA_STP810_DS}
+SMA Solar Technology AG, \textit{Sunny Tripower 8.0/10.0 -- Datenblatt (STP8-10-3AV-40-DS-de-40)},
+Online verfuegbar unter: \url{https://files.sma.de/downloads/STP8-10-3AV-40-DS-de-40.pdf},
+abgerufen am 21.06.2026.
+
+\bibitem{SMA_EVC_DS}
+SMA Solar Technology AG, \textit{SMA EV CHARGER -- Datenblatt (EVC-10-DS-de-10)},
+Online verfuegbar unter: \url{https://files.sma.de/downloads/EVC-10-DS-de-10.pdf},
+abgerufen am 21.06.2026.
+\end{thebibliography}
 
 \section{Versionshistorie}
 
@@ -375,42 +542,11 @@ VS Code + Modelica-Ext. & Editor & Syntax-Highlighting \\
 \toprule
 \textbf{Version} & \textbf{Datum} & \textbf{Änderungen} \\
 \midrule
+1.2 & 2026-06-21 & Literatur auf SMA-Dokumente umgestellt, Links aus Fliesstext entfernt, Vergleichssegment fuer 4 Wochenvarianten ergänzt \\
+1.1 & 2026-06-21 & Datenblattabgleich SMA-Hardware, Parameteranpassung, Autarkie-Implementierung in Fliesstext \\
 1.0 & 2026-06-21 & Initiale Dokumentation nach Copilot-Instructions \\
 \bottomrule
 \end{tabular}
 \end{table}
-
-\appendix
-
-\section{Technische Implementierung der kumulierten Autarkie}
-
-Die kumulierte Autarkie wird im Modell \texttt{HausSystem\_V3} durch Integration von Energieflüssen berechnet.
-
-\subsection{Integratoren}
-
-\begin{verbatim}
-Real energie_verbrauch_Wh(start=0, fixed=true);
-Real energie_netz_bezug_Wh(start=0, fixed=true);
-\end{verbatim}
-
-\subsection{Integrationsdifferentialgleichungen}
-
-\begin{align}
-\frac{d(\text{energie\_verbrauch\_Wh})}{dt} &= \frac{P_{\text{Last}}}{3600} \, [\text{Wh/s}] \\
-\frac{d(\text{energie\_netz\_bezug\_Wh})}{dt} &= \frac{\max(P_{\text{Grid}}, 0)}{3600} \, [\text{Wh/s}]
-\end{align}
-
-\subsection{Autarkie-Berechnung}
-
-\begin{equation}
-\text{autarkie\_kumuliert} = \begin{cases}
-100 \times (1 - \text{energie\_netz\_bezug\_Wh} / \text{energie\_verbrauch\_Wh}) & \text{wenn} \, \text{energie\_verbrauch\_Wh} > 1 \\
-0 & \text{sonst}
-\end{cases}
-\end{equation}
-
-\subsection{Output}
-
-\texttt{Autarkie\_kumuliert\_out}: Direktes Mapping der berechneten Variablen, verfügbar während der gesamten Simulation und als Endwert nach Simulationsende.
 
 \end{document}
