@@ -3,52 +3,92 @@ model HausSystem_V3
   // STARK VEREINFACHT: PV + Batterie + EMS + E_AUTO
   // ===========================
 
-  parameter Real kapazitaet_Batt_Wh = 5100  "Batterie Kapazität [Wh]";
-  parameter Real SOC0_Batt = 0.5 "Start-SOC Batterie [0..1]";
+  // ===========================
+  // UMGEBUNG
+  // ===========================
+  parameter Boolean nutzeSommer = true "true = Sommerprofil, false = Winterprofil"
+    annotation (Dialog(group="Umgebung"));
+  parameter Boolean nutze5plus2 = true "true = automatische 5+2-Woche"
+    annotation (Dialog(group="Umgebung"));
+  parameter Integer startWochentag(min=1, max=7) = 1
+    "Wochentag bei Simulationsstart: 1=Mo ... 7=So"
+    annotation (Dialog(group="Umgebung"));
+  parameter Boolean istWoche = true "true = unter der Woche, false = Wochenende"
+    annotation (Dialog(group="Umgebung"));
+  parameter Boolean netzAktiv = true "Netzanbindung aktiv"
+    annotation (Dialog(group="Umgebung"));
+  parameter Real P_netz_max_import = 10000 "Max Netzbezug [W]"
+    annotation (Dialog(group="Umgebung"));
+  parameter Real P_netz_max_export = 10000 "Max Netzeinspeisung [W]"
+    annotation (Dialog(group="Umgebung"));
+  parameter Boolean automatischeSimDauer = true
+    "Automatisch auf 1 Tag bei nutze5plus2=false, sonst 7 Tage"
+    annotation (Dialog(group="Umgebung"));
+
+  // ===========================
+  // HAUS
+  // ===========================
+  parameter Real kapazitaet_Batt_Wh = 5100  "Batterie Kapazität [Wh]"
+    annotation (Dialog(group="Haus"));
+  parameter Real SOC0_Batt = 0.5 "Start-SOC Batterie [0..1]"
+    annotation (Dialog(group="Haus"));
 
   // Hausbatterie (muss zu BatterieEinfach passen)
-  parameter Real SOC_batt_min_entladen = 0.05 "Unteres SOC-Limit Hausbatterie (wie BatterieEinfach.SOC_min)";
-  parameter Real SOC_batt_max = 0.95 "Oberes SOC-Limit Hausbatterie (wie BatterieEinfach.SOC_max)";
-
-  parameter Real P_batt_laden_max = 2300 "Max Ladeleistung Batterie [W]";
-  parameter Real P_batt_entladen_max = 3000 "Max Entladeleistung Batterie [W]";
-  parameter Real eta_batt_laden = 0.95 "Wirkungsgrad Laden Batterie";
-  parameter Real eta_batt_entladen = 0.95 "Wirkungsgrad Entladen Batterie";
+  parameter Real SOC_batt_min_entladen = 0.05 "Unteres SOC-Limit Hausbatterie (wie BatterieEinfach.SOC_min)"
+    annotation (Dialog(group="Haus"));
+  parameter Real SOC_batt_max = 0.95 "Oberes SOC-Limit Hausbatterie (wie BatterieEinfach.SOC_max)"
+    annotation (Dialog(group="Haus"));
+  parameter Real P_batt_laden_max = 2300 "Max Ladeleistung Batterie [W]"
+    annotation (Dialog(group="Haus"));
+  parameter Real P_batt_entladen_max = 3000 "Max Entladeleistung Batterie [W]"
+    annotation (Dialog(group="Haus"));
+  parameter Real eta_batt_laden = 0.95 "Wirkungsgrad Laden Batterie"
+    annotation (Dialog(group="Haus"));
+  parameter Real eta_batt_entladen = 0.95 "Wirkungsgrad Entladen Batterie"
+    annotation (Dialog(group="Haus"));
 
   // EMS / Batterie-Strategie
-  parameter Real SOC_batt_min_laden = 0.30 "Batterie lädt ab SOC < [0..1]";
-  parameter Real SOC_batt_max_laden = 0.80 "Batterie lädt nur bis SOC < [0..1]";
+  parameter Real SOC_batt_min_laden = 0.30 "Batterie lädt ab SOC < [0..1]"
+    annotation (Dialog(group="Haus"));
+  parameter Real SOC_batt_max_laden = 0.80 "Batterie lädt nur bis SOC < [0..1]"
+    annotation (Dialog(group="Haus"));
 
-  // (Alt/optional, wird nicht mehr an EMS übergeben)
-// parameter Real P_ev_schwelle = 1500 "ALT: EV Ladeschwelle [W] (nicht mehr an EMS)";
-// parameter Real SOC_batt_target = 0.60 "ALT: Batterie Ziel-SOC [0..1] (nicht mehr an EMS)";
-
-  // Netz
-  parameter Boolean netzAktiv = true "Netzanbindung aktiv";
-  parameter Real P_netz_max_import = 6000 "Max Netzbezug [W]";
-  parameter Real P_netz_max_export = 10000 "Max Netzeinspeisung [W]";
-
-  // EV-Parameter
-  parameter Boolean EV_aktiv = true "E_Auto aktivieren";
-  parameter Boolean v2gAktiv = false "V2G (Vehicle-to-Grid) aktivieren";
-  parameter Real SOC_EV_min_v2g = 0.60 "EV entlädt nur ab SOC > [0..1]";
-  parameter Real P_v2g_min_defizit = 100 "V2G springt ein ab Defizit > [W]";
-  parameter Real P_ev_entladen_max = 3300 "Max. EV Entladeleistung (V2G) [W]";
-
-  parameter Real kapazitaet_EV_Wh = 66500 "EV-Kapazität [Wh]";
-  parameter Real SOC0_EV = 0.4 "Start-SOC EV [0..1]";
-  parameter Real P_ev_laden_max = 11000 "Max. EV Ladeleistung [W]";
-
-  // EMS-Parameter für EV-Laden
-  parameter Real P_ev_schwelle_laden = 1500 "EV lädt erst ab Überschuss > [W]";
+  // ===========================
+  // EV
+  // ===========================
+  parameter Boolean EV_aktiv = true "E_Auto aktivieren"
+    annotation (Dialog(group="EV"));
+  parameter Real socAbsenkungRueckkehr = 0.10
+    "SOC-Absenkung bei EV-Rückkehr [0..1], z.B. 0.10 = 10%"
+    annotation (Dialog(group="EV"));
+  parameter Boolean v2gAktiv = false "V2G (Vehicle-to-Grid) aktivieren"
+    annotation (Dialog(group="EV"));
+  parameter Real SOC_EV_min_v2g = 0.60 "EV entlädt nur ab SOC > [0..1]"
+    annotation (Dialog(group="EV"));
+  parameter Real P_v2g_min_defizit = 100 "V2G springt ein ab Defizit > [W]"
+    annotation (Dialog(group="EV"));
+  parameter Real P_ev_entladen_max = 3300 "Max. EV Entladeleistung (V2G) [W]"
+    annotation (Dialog(group="EV"));
+  parameter Real kapazitaet_EV_Wh = 66500 "EV-Kapazität [Wh]"
+    annotation (Dialog(group="EV"));
+  parameter Real SOC0_EV = 0.4 "Start-SOC EV [0..1]"
+    annotation (Dialog(group="EV"));
+  parameter Real P_ev_laden_max = 11000 "Max. EV Ladeleistung [W]"
+    annotation (Dialog(group="EV"));
+  parameter Real SOC_EV_min_laden = 0.30 "EV soll bei Anwesenheit auf mind. diesen SOC geladen werden [0..1]"
+    annotation (Dialog(group="EV"));
+  parameter Real P_ev_schwelle_laden = 1500 "EV lädt erst ab Überschuss > [W]"
+    annotation (Dialog(group="EV"));
 
   // ===========================
   // Komponenten (MINIMAL!)
   // ===========================
 
   InputFunktion_V2 inputPV(
-    nutzeSommer = true,
-    istWoche = true)
+    nutzeSommer = nutzeSommer,
+    nutze5plus2 = nutze5plus2,
+    startWochentag = startWochentag,
+    istWoche = istWoche)
     annotation (Placement(transformation(extent={{-140,100},{-100,130}})));
 
   BatterieEinfach batterie(
@@ -64,6 +104,10 @@ model HausSystem_V3
 
   E_Auto e_auto(
     EV_aktiv = EV_aktiv,
+    istWoche = istWoche,
+    nutze5plus2 = nutze5plus2,
+    startWochentag = startWochentag,
+    socAbsenkungRueckkehr = socAbsenkungRueckkehr,
     v2gAktiv = v2gAktiv,
     kapazitaet_Wh = kapazitaet_EV_Wh,
     SOC0 = SOC0_EV,
@@ -82,6 +126,7 @@ model HausSystem_V3
     SOC_EV_min_v2g = SOC_EV_min_v2g,
     P_v2g_min_defizit = P_v2g_min_defizit,
     P_ev_entladen_max = P_ev_entladen_max,
+    SOC_EV_min_laden = SOC_EV_min_laden,
     P_ev_schwelle_laden = P_ev_schwelle_laden,
     P_ev_laden_max = P_ev_laden_max,
 
@@ -125,7 +170,20 @@ model HausSystem_V3
   "Autarkiegrad [%]"
   annotation(Placement(transformation(extent={{100,15},{120,25}})));
 
+protected
+  parameter Real simDauerTag_s = 86400 "1 Tag in Sekunden";
+  parameter Real simDauerWoche_s = 604800 "7 Tage in Sekunden";
+  Real simEnde_s "Automatisches Simulationsende [s]";
+
 equation 
+  // Automatische Simulationsdauer anhand des Wochenmodus
+  simEnde_s = if automatischeSimDauer then (if nutze5plus2 then simDauerWoche_s else simDauerTag_s) else simDauerWoche_s;
+
+  // Beendet die Simulation automatisch beim Erreichen der Zielzeit
+  when time >= simEnde_s then
+    terminate("Automatisches Simulationsende erreicht.");
+  end when;
+
   // ===========================
   // EINGÄNGE → EMS
   // ===========================
@@ -214,8 +272,8 @@ equation
 
     experiment(
       StartTime = 0,
-      StopTime = 86400,
-      NumberOfIntervals = 1440,
+      StopTime = 604800,
+      NumberOfIntervals = 10080,
       Interval = 60,
       Tolerance = 0.0001,
       Algorithm = "dassl"));

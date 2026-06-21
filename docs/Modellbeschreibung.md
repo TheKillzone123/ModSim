@@ -10,6 +10,12 @@ Das Modell simuliert das **Energiemanagementsystem eines Haushalts** mit PV-Anla
 - **Energy Management System (EMS)**: Zentrale Regeleinheit für Laden/Entladen, Netzausgleich
 - **Netzanbindung**: Import/Export mit Bezugs- und Einspeisegrenzen
 
+Es handelt sich um die Abbildung eines **spezifischen realen Haushalts** (Elternhaus). Die verwendeten Zeitreihen fuer Erzeugung und Verbrauch sowie die System-Spezifizierung basieren auf dort vorhandenen Daten.
+
+Die eingesetzten Komponentenparameter stammen, soweit verfuegbar, aus technischen Datenblaettern. Nicht direkt verifizierbare Groessen (z.B. einzelne Wirkungsgrade) werden als begruendete Modellannahmen gesetzt.
+
+Beim EV wird ein **BMW iX2** modelliert, unter der Annahme, dass bidirektionales Laden (V2G) technisch verfuegbar ist.
+
 Das Modell ist in **Modelica** implementiert und läuft auf Dymola/OpenModelica.
 
 ---
@@ -52,8 +58,97 @@ Batterie  E_Auto  Netz
 1. **InputFunktion_V2**: Zeitgesteuerter Datengenerator
    - PV-Leistung: Tabelle mit 4-Werte-Profilen (Sommer/Winter × Woche/Wochenende)
    - Haushaltslast: Ebenso saisonabhängig
-   - Inputs: `nutzeSommer` (Boolean), `istWoche` (Boolean)
+   - Inputs: `nutzeSommer` (Boolean), `nutze5plus2` (Boolean), `startWochentag` (Integer), `istWoche` (Boolean)
    - Outputs: `P_PV`, `P_Last`
+   - Bei `nutze5plus2=true` wird automatisch eine realistische 5+2-Woche verwendet
+     (Mo-Fr = Wochenprofil, Sa-So = Wochenendprofil)
+
+### Technische Umsetzung der Input-Logik (ausfuehrlich)
+
+Die Input-Funktionen sind kompakt als **24h-Rasterprofile** umgesetzt und werden fuer Mehrtagessimulationen zyklisch ueber die Simulationszeit adressiert. Dadurch bleibt das Modell wartbar (keine tausenden Tabellenzeilen) und gleichzeitig deterministisch.
+
+#### InputFunktion_V2 (PV + Last)
+
+- Es werden vier Profile als Arrays mit `anzahlPunkte = 97` gespeichert:
+   - `pvSommerW[97]`
+   - `pvWinterW[97]`
+   - `lastWocheW[97]`
+   - `lastWochenendeW[97]`
+- Die 97 Stuetzstellen entsprechen 96 Intervallen zu 15 Minuten plus Endpunkt bei 24:00.
+- Die Tageszeit wird aus der Simulationszeit berechnet:
+
+$$
+t_{Tag} = \operatorname{mod}(time, 86400)
+$$
+
+- Daraus wird der Index fuer das 15-Minuten-Raster bestimmt:
+
+$$
+i = \left\lfloor \frac{t_{Tag}}{900} \right\rfloor + 1, \quad i \in [1,97]
+$$
+
+- Fuer Mehrtagessimulationen wird der Wochentag dynamisch berechnet:
+
+$$
+tagIndex = \left\lfloor \frac{time}{86400} \right\rfloor
+$$
+
+$$
+wochentagIndex = 1 + \operatorname{mod}(startWochentag - 1 + tagIndex, 7)
+$$
+
+- Die interne Auswahl `istWocheIntern` erfolgt dann ueber:
+   - `nutze5plus2=true`: Mo-Fr als Woche (`wochentagIndex <= 5`), Sa-So als Wochenende
+   - `nutze5plus2=false`: alternierender Tageswechsel (Woche/Wochenende) ausgehend von `istWoche` am Starttag
+
+- Ausgabeselektion:
+
+$$
+P_{PV} =
+\begin{cases}
+pvSommerW[i], & nutzeSommer=true \\
+pvWinterW[i], & nutzeSommer=false
+\end{cases}
+$$
+
+$$
+P_{Last} =
+\begin{cases}
+lastWocheW[i], & istWocheIntern=true \\
+lastWochenendeW[i], & istWocheIntern=false
+\end{cases}
+$$
+
+#### Warum stufig (15-Minuten-Haltewerte) statt Interpolation?
+
+- Die Eingabedaten liegen als diskrete 15-Minuten-Rasterwerte vor. Im Modell werden diese Werte als stueckweise konstante Haltewerte (Zero-Order-Hold) verwendet.
+- Das erklaert die optisch "abgehackte" Darstellung in den Kurven: Innerhalb eines 15-Minuten-Intervalls bleibt der Wert konstant und springt erst am naechsten Rasterpunkt.
+
+Entscheidungsgruende fuer diese Umsetzung:
+- **Toolchain-Kompatibilitaet**: Die zuvor genutzte Tabellenvariante mit erweiterten Optionen war in der genutzten Umgebung nicht durchgaengig robust. Die direkte Rasterauswahl per Index ist dagegen stabil und reproduzierbar.
+- **Wartbarkeit**: Kompakte 24h-Arrays mit 97 Punkten sind deutlich einfacher zu pflegen als lange, mehrfach ausgerollte Wochentabellen.
+- **Deterministisches Verhalten**: EV-Praesenz, Wochenlogik und Last/PV-Umschaltung arbeiten auf demselben 15-Minuten-Raster. Dadurch sind Umschaltzeitpunkte eindeutig und konsistent.
+- **Datennahe Abbildung**: Bei gemittelten 15-Minuten-Messwerten ist eine stueckweise konstante Darstellung methodisch nachvollziehbar, ohne zusaetzliche Zwischenannahmen durch lineare Interpolation.
+
+Bewusster Trade-off:
+- Nachteil ist die stufige Optik der Signale.
+- Vorteil ist ein robuster, nachvollziehbarer und in dieser Toolchain kompatibler Simulationsbetrieb.
+
+#### InputFunktionEV (Praesenz + SOC-Rueckkehrlogik)
+
+- Auch das EV-Profil ist als 15-Minuten-Raster mit `anzahlPunkte = 97` umgesetzt:
+   - `evPraesenzWoche[97]` (07:00-16:00 = abwesend)
+   - `evPraesenzWochenende[97]` (durchgehend anwesend)
+- Die Wochen-/Wochenendumschaltung nutzt dieselbe 5+2-Logik wie `InputFunktion_V2`.
+- Das Praesenzsignal entsteht ueber den jeweils ausgewaehlten Rasterwert (`> 0.5`).
+- Beim Verlassen wird der aktuelle SOC gespeichert.
+- Beim Wiederankommen wird ein Setzimpuls erzeugt und der neue SOC vorgegeben als:
+
+$$
+SOC_{set} = \operatorname{clip}(SOC_{verlassen} - socAbsenkungRueckkehr, 0, 1)
+$$
+
+- Damit wird der taegliche Fahrverbrauch durch einen einfachen, robusten Rueckkehrabzug modelliert.
 
 ### Normierung der PV-Sommererzeugung (Juni)
 
@@ -133,14 +228,21 @@ Die Winterwerte wurden entsprechend in der Eingabefunktion ausgetauscht (auf gan
 
 3. **E_Auto (mit InputFunktionEV)**:
    - Integriert EV-Batterie mit V2G-Logik via `BatterieEinfachV2G`
-   - Zeitplan: Präsenz 0-8h und 16-24h (Standard)
-   - Bei Ankunft: SOC-Reset auf 0,8 (für V2G-Szenarien)
+    - Zeitplan ist als 15-Minuten-Rasterprofil implementiert und parametrierbar über `istWoche` bzw. automatisch über `nutze5plus2`:
+       - Unter der Woche: EV ist von 07:00 bis 16:00 nicht an der Steckdose
+       - Wochenende: EV ist durchgehend an der Steckdose
+    - Bei jeder Rückkehr wird der SOC relativ zum SOC beim Verlassen reduziert:
+       - `SOC_set = SOC_verlassen - socAbsenkungRueckkehr`
+       - Standard: `socAbsenkungRueckkehr = 0,10` (10 Prozentpunkte)
    - Inputs: `P_soll` (vom EMS)
    - Outputs: `SOC_EV`, `P_EV`, `EV_present_out`
 
 4. **EMS (Energy Management System)**:
    - **Priorität 1**: Hausbatterie laden (bei Überschuss + SOC < 80%) / entladen (bei Defizit + SOC > 5%)
-   - **Priorität 2**: EV laden (nur bei Rest-Überschuss ≥ 1500 W)
+   - **Priorität 2**: EV-Laden mit Mindest-SOC-Regel
+     - Bei EV-Anwesenheit und `SOC_EV < SOC_EV_min_laden` wird das EV aktiv nachgeladen
+     - Falls PV-Überschuss nicht reicht, wird Netzbezug zum Nachladen genutzt (innerhalb Netzgrenzen)
+     - Oberhalb des Mindest-SOC lädt das EV wie bisher nur bei Rest-Überschuss
    - **Priorität 3**: V2G aktivieren (nur wenn Hausbatterie leer, v2gAktiv=true, EV anwesend, SOC_EV ≥ 60%)
    - **Restausgleich**: Netzimport/Export
    - Berechnet **Autarkiegrad** = 100% × (1 − max(Grid_import,0)/Last)
@@ -148,7 +250,7 @@ Die Winterwerte wurden entsprechend in der Eingabefunktion ausgetauscht (auf gan
 ### Szenarien und Parameter
 
 **Zeitliche Auflösung:**
-- Simulationsdauer: 24 Stunden (86.400 Sekunden)
+- Simulationsdauer (Standard): 7 Tage (604.800 Sekunden)
 - Integrationsschrittweite: 60 Sekunden (Mindestauflösung: 1440 Zeitpunkte)
 - Solver: DASSL (differential-algebraic system solver)
 
@@ -160,7 +262,12 @@ Die Winterwerte wurden entsprechend in der Eingabefunktion ausgetauscht (auf gan
 
 **Szenarien definierbar durch:**
 - `nutzeSommer=true/false`: Sommer/Winterprofile
-- `istWoche=true/false`: Wochentag/Wochenende-Lasten
+- `nutze5plus2=true/false`: Automatische 5+2-Woche (Mo-Fr Woche, Sa-So Wochenende)
+- `startWochentag` (1..7): Starttag der Simulation (1=Mo ... 7=So)
+- `istWoche=true/false`: Starttag-Typ bei `nutze5plus2=false` (danach alternierend pro Tag)
+- `automatischeSimDauer=true/false`: Bei `nutze5plus2=false` automatisch 1 Tag, bei `nutze5plus2=true` 7 Tage
+- `socAbsenkungRueckkehr`: SOC-Absenkung des EV bei Rückkehr (Default 0,10)
+- `SOC_EV_min_laden`: Mindest-SOC des EV bei Anwesenheit (Default 0,30), notfalls mit Netzladung
 - `v2gAktiv=true/false`: V2G-Funktionalität
 - `EV_aktiv=true/false`: E-Auto im Haushalt vorhanden
 - Parametervariation: Batteriekapazität, Ladeschwellen, Wirkungsgrade
@@ -193,7 +300,7 @@ Die Winterwerte wurden entsprechend in der Eingabefunktion ausgetauscht (auf gan
 2. **Konstante Wirkungsgrade**: 95% für Laden, 95% für Entladen (keine SOC-, Temperatur- oder Leistungsabhängigkeit)
 3. **Keine Selbstentladung**: Batterien verlieren keine Energie wenn untätig
 4. **Sofortige Schaltung**: Laden/Entladen-Übergänge sind ideal (keine Schalt-Transiente)
-5. **EV-Präsenz deterministisch**: Ankunfts-/Abfahrtszeiten sind zeitfest (0-8h, 16-24h)
+5. **EV-Präsenz deterministisch**: 15-Minuten-Rasterprofil mit fester Wochenlogik (Mo-Fr 07-16h abwesend, Sa-So anwesend)
 6. **SOC-Limits hart**: Unter 5% oder über 95% ist Energie unerreichbar
 7. **Netzanbindung unbegrenzt**: Netzfrequenz/Spannung sind konstant, kein Blackout-Risiko
 
@@ -206,8 +313,8 @@ Die Winterwerte wurden entsprechend in der Eingabefunktion ausgetauscht (auf gan
 ```modelica
 experiment(
   StartTime = 0,
-  StopTime = 86400,           // 24 Stunden in Sekunden
-  NumberOfIntervals = 1440,   // 1 Sekunde Auflösung
+   StopTime = 604800,          // 7 Tage in Sekunden
+   NumberOfIntervals = 10080,  // 60 Sekunden Aufloesung
   Interval = 60,              // Output alle 60 Sekunden (optional)
   Tolerance = 0.0001,         // Relative Toleranz für DAE-Löser
   Algorithm = "dassl"         // DASSL-Solver für steife Systeme
@@ -216,7 +323,7 @@ experiment(
 
 ### Begründung für Einstellungen:
 
-- **NumberOfIntervals = 1440**: 86.400 s / 1440 = 60 s Zeitschritte → feine Genug für Lastspitzen-Erfassung
+- **NumberOfIntervals = 10080**: 604.800 s / 10.080 = 60 s Zeitschritte fuer konsistente Wochenprofile
 - **Tolerance = 0.0001**: Genauig für Energiebilanzen (Fehler < 0,01% der typischen Leistungen)
 - **DASSL**: Robust für algebraische Schleifen (EMS-Logik mit Gating-Bedingungen)
 
@@ -226,6 +333,13 @@ Abhängig von **Analysefokus**:
 - **Kurz-Fenster-Analysen** (z.B. Peak-Lasten): `Tolerance=1e-5`, `Interval=10` (alle 10 s Output)
 - **Lange Szenarien** (> 7 Tage): Toleranz aufgelockert auf `1e-3` (schneller)
 - **V2G-Transiente**: `Algorithm="Euler"` mit sehr feinem `Interval=1` (1 Sekunde)
+
+Hinweis zur automatischen Simulationsdauer:
+- Das Experiment ist standardmaessig auf 7 Tage konfiguriert.
+- Zusaetzlich beendet `HausSystem_V3` die Simulation automatisch per `terminate()`, sobald die aus dem Modus resultierende Zielzeit erreicht ist.
+- Dadurch gilt ohne manuelle Umstellung:
+   - `nutze5plus2=true` -> 7 Tage
+   - `nutze5plus2=false` -> 1 Tag
 
 ---
 
@@ -302,10 +416,10 @@ Abhängig von **Analysefokus**:
 
 ### Datenquellen:
 
-- **PV-Leistungsdaten**: Eigene Tabellen basierend auf Gutachterdaten für Deutschland (Breitengrad ~52°N), keine veröffentlichte Quelle
-- **Haushaltslast-Profile**: Orientiert an VDEW-Standardlastprofile (Verband der Elektrizitätswirtschaft) für Haushalte in Deutschland
-- **Batterie-Wirkungsgrade (0,95)**: Literaturwerte für moderne Lithium-Ionen-Batterien (z.B. Tesla Powerwall, Sonnenbaum)
-- **Fahrzeugparameter**: EV-Batterie 66,5 kWh entspricht ca. Tesla Model 3 Long Range; Ladegeschwindigkeit 11 kW Standard-IEC
+- **Erzeugungs- und Verbrauchsdaten**: Mess- und Betriebsdaten aus dem Elternhaus (spezifischer realer Haushalt)
+- **System-Spezifizierung**: Komponenten- und Anlagendaten aus dem realen Haushaltssetup
+- **Komponentenparameter**: Prioritaer aus Herstellerdatenblaettern; fehlende Werte als begruendete Annahmen (z.B. Wirkungsgrade)
+- **Fahrzeugparameter**: BMW iX2 als Referenzfahrzeug; V2G wird als Modellannahme zugelassen (auch wenn dies fahrzeug-/marktseitig nicht in jedem Setup verfuegbar ist)
 
 ### Verwendete Bibliotheken:
 

@@ -3,6 +3,13 @@ model E_Auto
   // Parameter
   // ===========================
   parameter Boolean EV_aktiv = true "EV aktivieren (Ein/Aus)";
+  parameter Boolean istWoche = true "true = unter der Woche, false = Wochenende";
+  parameter Boolean nutze5plus2 = true
+    "true = automatische 5+2-Woche (Mo-Fr Woche, Sa-So Wochenende)";
+  parameter Integer startWochentag(min=1, max=7) = 1
+    "Wochentag bei Simulationsstart: 1=Mo ... 7=So";
+  parameter Real socAbsenkungRueckkehr(min=0, max=1) = 0.10
+    "SOC-Absenkung bei Rückkehr [0..1]";
   parameter Boolean v2gAktiv = false "Bidirektionales Laden (V2G) erlauben";
   parameter Real kapazitaet_Wh = 40000 "EV-Kapazität [Wh]";
   parameter Real SOC0 = 0.4 "Start-SOC [0..1]";
@@ -41,7 +48,11 @@ model E_Auto
   // ===========================
 
   InputFunktionEV plan(
-    EV_aktiv = EV_aktiv)
+    EV_aktiv = EV_aktiv,
+    istWoche = istWoche,
+    nutze5plus2 = nutze5plus2,
+    startWochentag = startWochentag,
+    socAbsenkungRueckkehr = socAbsenkungRueckkehr)
     annotation (Placement(transformation(extent={{-70,40},{-30,80}})));
 
   // BatterieEinfach mit V2G-Logik
@@ -67,6 +78,10 @@ equation
 
   connect(plan.SOC_set_val, batt.SOC_set_val)
     annotation (Line(points={{-28,40},{-20,40},{-20,45},{7.5,45}},color={0,0,127}));
+
+  connect(batt.SOC, plan.SOC_aktuell)
+    annotation (Line(points={{62.5,10},{70,10},{70,-20},{-80,-20},{-80,0},{-72.5,0}},
+                     color={0,0,127}));
 
   connect(P_soll, batt.P_soll)
     annotation (Line(points={{-110,0},{0,0},{0,15},{7.5,15}},color={0,0,127}));

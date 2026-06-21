@@ -16,6 +16,7 @@ model EMS
   parameter Real P_ev_entladen_max = 3300 "Max EV Entladeleistung (V2G) [W]";
 
   // EV Laden
+  parameter Real SOC_EV_min_laden = 0.30 "EV wird bei Anwesenheit auf mind. diesen SOC nachgeladen [0..1]";
   parameter Real P_ev_schwelle_laden = 500 "EV lädt erst ab Rest-Überschuss >= [W]";
   parameter Real P_ev_laden_max = 11000 "Max EV Ladeleistung [W]";
 
@@ -99,9 +100,12 @@ equation
       0;                                     // negativ
 
   // 4) EV Laden: nur bei ausreichend Rest-Überschuss nach Hausbatt
-  //    -> EV lädt dann, wenn Hausbatt an ihrer Ladegrenze hängt UND noch >= Schwelle übrig bleibt.
+  //    -> Bei SOC < SOC_EV_min_laden wird erzwungen geladen (auch mit Netzbezug, falls noetig).
+  //    -> Sonst nur bei ausreichend Rest-Ueberschuss.
   P_EV_laden =
-    if (P_nach_batt >= P_ev_schwelle_laden) and EV_present then 
+    if EV_present and (SOC_EV < SOC_EV_min_laden) then
+      min(P_ev_laden_max, max(P_nach_batt + P_netz_max_import, 0))
+    else if (P_nach_batt >= P_ev_schwelle_laden) and EV_present then 
       min(P_nach_batt, P_ev_laden_max)
     else 
       0;                                     // positiv
