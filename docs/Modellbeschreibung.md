@@ -41,16 +41,16 @@ Das Modell dient **nicht** zur Optimierung von Kosten oder wirtschaftlichen Krit
 
 Das Gesamtmodell `HausSystem_V3` orchestriert vier Hauptkomponenten:
 
-```
-InputFunktion_V2 (Zeitprofile)
-         ↓
-    [PV, Last]
-         ↓
-    EMS (Regeleinheit)
-    ↙   ↓   ↘
-Batterie  E_Auto  Netz
-    ↑   ↓   ↓
-    └─ Feedback (SOC, Präsenz)
+```mermaid
+flowchart TD
+   input[InputFunktion_V2<br/>Zeitprofile] --> sig[PV und Last]
+   sig --> ems[EMS<br/>Regeleinheit]
+   ems --> batt[Batterie]
+   ems --> ev[E_Auto]
+   ems --> grid[Netz]
+   batt --> fb[SOC und Praesenz-Feedback]
+   ev --> fb
+   fb --> ems
 ```
 
 #### **Komponenten im Detail:**
@@ -247,6 +247,25 @@ Die Winterwerte wurden entsprechend in der Eingabefunktion ausgetauscht (auf gan
    - **Restausgleich**: Netzimport/Export
    - Berechnet **Autarkiegrad** = 100% × (1 − max(Grid_import,0)/Last)
 
+```mermaid
+flowchart TD
+      start[PV-Last-Bilanz vorhanden] --> p1{Ueberschuss oder Defizit?}
+      p1 -->|Ueberschuss| bLade[Batterie laden<br/>bis Grenzen]
+      p1 -->|Defizit| bEntlade[Batterie entladen<br/>bis SOC_min]
+      bLade --> p2{EV anwesend?}
+      bEntlade --> p2
+      p2 -->|Ja und SOC_EV < SOC_EV_min_laden| evMin[EV Mindest-SOC nachladen]
+      p2 -->|Ja und genug Rest-Ueberschuss| evSurp[EV mit Rest-Ueberschuss laden]
+      p2 -->|Nein| rest[Restleistung]
+      evMin --> p3{Defizit bleibt und V2G aktiv?}
+      evSurp --> p3
+      rest --> p3
+      p3 -->|Ja| v2g[V2G Entladung]
+      p3 -->|Nein| grid[Netz Import/Export]
+      v2g --> grid
+      grid --> auto[Autarkie und Autarkie_kumuliert]
+```
+
 ### Szenarien und Parameter
 
 **Zeitliche Auflösung:**
@@ -356,9 +375,23 @@ Hinweis zur automatischen Simulationsdauer:
 | `P_Batt_soll` | [W] | EMS-Befehl an Batterie | ±3000 W |
 | `P_EV_soll` | [W] | EMS-Befehl an E-Auto | ±11000 W |
 | `P_Grid_soll` | [W] | Netzausgleich | ±6000 W (Import) / ±10000 W (Export) |
-| `Autarkie` | [%] | **Autarkiegrad** | 0–100% |
+| `Autarkie` | [%] | **Autarkiegrad (momentan)** | 0–100% |
+| `Autarkie_kumuliert` | [%] | **Autarkiegrad (über Gesamtzeitraum)** | 0–100% |
 
 ### Sinnvollheit der Ergebnisse:
+
+#### Autarkiegrad-Verständnis:
+
+**Momentaner Autarkiegrad (`Autarkie`):**
+- Wird bei jedem Zeitschritt berechnet: $$\text{Autarkie}(t) = 100\% \times \left(1 - \frac{\max(P_{\text{Grid}}, 0)}{P_{\text{Last}}}\right)$$
+- Zeigt an, wie viel des **aktuellen Strombedarfs** aus eigenen Quellen (PV + Batterie + V2G) gedeckt wird
+- Schwankt stark je nach Tageszeit und Wetter
+
+**Kumulierter Autarkiegrad (`Autarkie_kumuliert`):**
+- Wird über die **gesamte Simulationsdauer** akkumuliert: $$\text{Autarkie}_{\text{kumuliert}} = 100\% \times \left(1 - \frac{\sum P_{\text{Netz-Import}}}{\sum P_{\text{Last}}}\right)$$
+- Stellt das **integrale Verhältnis** dar: Gesamtnetzbezug zu Gesamtverbrauch
+- Dies ist der **entscheidende Kennwert** für die Frage: "Wie autark ist der Haushalt wirklich über die Simulations-Zeitspanne?"
+- **Ausgabewert am Ende der Simulation**: Finaler Wert zeigt die durchschnittliche Autarkie über alle Tage
 
 ✅ **Physikalische Konsistenz:**
 - Energiebilanz: P_PV = P_Last + P_Batt + P_EV + P_Grid (sollte auf > 99,9% erfüllt sein)
@@ -368,6 +401,38 @@ Hinweis zur automatischen Simulationsdauer:
 ✅ **Validierungsmöglichkeiten:**
 1. **Energiebilanz-Check**: Integral(P_PV) − Integral(P_Last − P_Grid) sollte ≈ Integral(P_Batt + P_EV) sein
 2. **SOC-Realismus**: Batterie-Zyklen sollten typischerweise 0,3–0,8 (nicht ständig 0,05–0,95)
+3. **Kumulierte Autarkie-Validierung**: 
+   - Formelkontrolle: $\text{Autarkie}_{\text{kumuliert}} = \frac{E_{\text{Verbrauch}} - E_{\text{Netzimport}}}{E_{\text{Verbrauch}}} \times 100\%$
+   - Der Endwert von `Autarkie_kumuliert_out` sollte zwischen dem Minimum der momentanen Autarkie und 100% liegen
+   - Bei V2G aktiv sollte die kumulierte Autarkie höher sein als ohne V2G
+
+### Technische Implementierung der kumulierten Autarkie:
+
+Im Modell `HausSystem_V3` wird die kumulierte Autarkie durch Integration von Energieflüssen berechnet:
+
+**Integratoren (Protected-Variablen):**
+```modelica
+Real energie_verbrauch_Wh(start=0, fixed=true)  // Kumulierte Verbrauchsenergie [Wh]
+Real energie_netz_bezug_Wh(start=0, fixed=true) // Kumulierte Netzbezugsenergie [Wh]
+```
+
+**Integrationsdifferentialgleichungen:**
+```modelica
+der(energie_verbrauch_Wh) = inputPV.P_Last / 3600;              // [W] → [Wh/s]
+der(energie_netz_bezug_Wh) = max(ems.P_Grid_soll, 0) / 3600;    // Nur Import (positive Werte)
+```
+
+**Autarkie-Berechnung:**
+```modelica
+autarkie_kumuliert = if energie_verbrauch_Wh > 1 then 
+  100.0 * (1.0 - energie_netz_bezug_Wh / energie_verbrauch_Wh)
+else 
+  0;
+```
+
+**Output:**
+- `Autarkie_kumuliert_out`: Direktes Mapping der berechneten Variablen
+- Verfügbar während der gesamten Simulation und als Endwert nach Simulationsende
 3. **Spitzenlast-Matching**: P_Last_peak sollte mit Batterie + Netz decken können
 4. **V2G-Sinnhaftigkeit**: Mit V2G aktiv sollte Autarkie steigen (um 5–15%), nicht fallen
 

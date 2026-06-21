@@ -1,0 +1,16 @@
+flowchart TD
+      start[PV-Last-Bilanz vorhanden] --> p1{Ueberschuss oder Defizit?}
+      p1 -->|Ueberschuss| bLade[Batterie laden<br/>bis Grenzen]
+      p1 -->|Defizit| bEntlade[Batterie entladen<br/>bis SOC_min]
+      bLade --> p2{EV anwesend?}
+      bEntlade --> p2
+      p2 -->|Ja und SOC_EV < SOC_EV_min_laden| evMin[EV Mindest-SOC nachladen]
+      p2 -->|Ja und genug Rest-Ueberschuss| evSurp[EV mit Rest-Ueberschuss laden]
+      p2 -->|Nein| rest[Restleistung]
+      evMin --> p3{Defizit bleibt und V2G aktiv?}
+      evSurp --> p3
+      rest --> p3
+      p3 -->|Ja| v2g[V2G Entladung]
+      p3 -->|Nein| grid[Netz Import/Export]
+      v2g --> grid
+      grid --> auto[Autarkie und Autarkie_kumuliert]

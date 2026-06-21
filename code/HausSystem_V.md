@@ -167,13 +167,22 @@ model HausSystem_V3
     annotation(Placement(transformation(extent={{100,35},{120,45}})));
 
   Modelica.Blocks.Interfaces.RealOutput Autarkie_out
-  "Autarkiegrad [%]"
+  "Autarkiegrad momentan [%]"
   annotation(Placement(transformation(extent={{100,15},{120,25}})));
+
+  Modelica.Blocks.Interfaces.RealOutput Autarkie_kumuliert_out
+  "Autarkiegrad über Gesamtzeitraum [%]"
+  annotation(Placement(transformation(extent={{100,-5},{120,5}})));
 
 protected
   parameter Real simDauerTag_s = 86400 "1 Tag in Sekunden";
   parameter Real simDauerWoche_s = 604800 "7 Tage in Sekunden";
   Real simEnde_s "Automatisches Simulationsende [s]";
+  
+  // Energieintegration für Autarkie-Berechnung
+  Real energie_verbrauch_Wh(start=0, fixed=true) "Kumulierte Verbrauchsenergie [Wh]";
+  Real energie_netz_bezug_Wh(start=0, fixed=true) "Kumulierte Netzbezugsenergie [Wh]";
+  Real autarkie_kumuliert "Autarkie über Gesamtzeitraum [%]";
 
 equation 
   // Automatische Simulationsdauer anhand des Wochenmodus
@@ -183,6 +192,22 @@ equation
   when time >= simEnde_s then
     terminate("Automatisches Simulationsende erreicht.");
   end when;
+
+  // ===========================
+  // ENERGIEINTEGRATION
+  // ===========================
+  // Verbrauchte Energie in Wh pro Sekunde
+  der(energie_verbrauch_Wh) = inputPV.P_Last / 3600;
+  
+  // Netzbezugsenergie in Wh pro Sekunde (nur positiv, also Import)
+  der(energie_netz_bezug_Wh) = max(ems.P_Grid_soll, 0) / 3600;
+  
+  // Autarkiegrad über Gesamtzeitraum [%]
+  autarkie_kumuliert = 
+    if energie_verbrauch_Wh > 1 then 
+      100.0 * (1.0 - energie_netz_bezug_Wh / energie_verbrauch_Wh)
+    else 
+      0;
 
   // ===========================
   // EINGÄNGE → EMS
@@ -256,6 +281,8 @@ equation
   annotation (Line(points={{83.5,75},{95,75},{95,20},{100,20}},
       color={0,200,0}, thickness=1));
 
+  Autarkie_kumuliert_out = autarkie_kumuliert;
+
   annotation(
     Icon(coordinateSystem(preserveAspectRatio=false),
       graphics={
@@ -273,9 +300,6 @@ equation
     experiment(
       StartTime = 0,
       StopTime = 604800,
-      NumberOfIntervals = 10080,
-      Interval = 60,
-      Tolerance = 0.0001,
-      Algorithm = "dassl"));
+      Tolerance = 0.0001));
 
 end HausSystem_V3;

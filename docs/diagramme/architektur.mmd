@@ -1,0 +1,9 @@
+flowchart TD
+   input[InputFunktion_V2<br/>Zeitprofile] --> sig[PV und Last]
+   sig --> ems[EMS<br/>Regeleinheit]
+   ems --> batt[Batterie]
+   ems --> ev[E_Auto]
+   ems --> grid[Netz]
+   batt --> fb[SOC und Praesenz-Feedback]
+   ev --> fb
+   fb --> ems

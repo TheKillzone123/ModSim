@@ -1,0 +1,416 @@
+\documentclass[conference]{IEEEtran}
+\IEEEoverridecommandlockouts
+
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{algorithmic}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage[ngerman]{babel}
+\usepackage[utf8]{inputenc}
+\usepackage{booktabs}
+\usepackage{url}
+
+\def\BibTeX{{\rm B\kern-.05em{\sc i\kern-.025em b}\kern-.08em
+    T\kern-.1667em\lower.7ex\hbox{E}\kern-.125emX}}
+
+\begin{document}
+
+\title{Modellierung der Haushalts-Autarkie\\ 
+{\footnotesize Energiesimulation mit PV-Anlage, Batteriespeicher und Elektrofahrzeug}}
+
+\author{\IEEEauthorblockN{Modellierungsingenieur}
+\IEEEauthorblockA{Energiesimulation\\
+Modellierungsprojekt ModSim\\
+2026}
+}
+
+\maketitle
+
+\begin{abstract}
+Dieses Dokument beschreibt ein Simulationsmodell zur Untersuchung der Autarkie eines Haushalts mit Photovoltaikanlage, Batteriespeicher, Elektrofahrzeug und Netzanbindung. Das Modell wurde in Modelica implementiert und ermöglicht die Analyse von Energieflüssen und Autarkiegraden unter verschiedenen Betriebsszenarien. Zentrale Ausgabe ist die kumulierte Autarkie über den Simulationszeitraum.
+\end{abstract}
+
+\begin{IEEEkeywords}
+Haushalts-Autarkie, PV-Simulation, Energiemanagementsystem, Vehicle-to-Grid, Modelica
+\end{IEEEkeywords}
+
+\section{Modellierungsgegenstand}
+
+Das Modell simuliert das \textbf{Energiemanagementsystem eines Haushalts} mit PV-Anlage, Batteriespeicher, E-Auto und Netzanbindung. Zentrale simulierte Komponenten sind:
+
+\begin{itemize}
+\item \textbf{Photovoltaikanlage}: Tagesabhängige Stromproduktion (Sommer/Winter, Wochentag/Wochenende)
+\item \textbf{Hausbatterie}: Kurzzeitspeicher zur Verschiebung von Energie (Kapazität 5,1 kWh)
+\item \textbf{Elektrofahrzeug}: Mit Batterie (bis 66,5 kWh) und Anwesenheitsplan
+\item \textbf{Energy Management System (EMS)}: Zentrale Regeleinheit für Laden/Entladen, Netzausgleich
+\item \textbf{Netzanbindung}: Import/Export mit Bezugs- und Einspeisegrenzen
+\end{itemize}
+
+Es handelt sich um die Abbildung eines \textbf{spezifischen realen Haushalts} (Elternhaus). Die verwendeten Zeitreihen für Erzeugung und Verbrauch sowie die System-Spezifizierung basieren auf dort vorhandenen Daten.
+
+Die eingesetzten Komponentenparameter stammen, soweit verfügbar, aus technischen Datenblättern. Nicht direkt verifizierbare Größen (z.\,B. einzelne Wirkungsgrade) werden als begründete Modellannahmen gesetzt.
+
+Beim E-Auto wird ein \textbf{BMW iX2} modelliert, unter der Annahme, dass bidirektionales Laden (Vehicle-to-Grid, V2G) technisch verfügbar ist.
+
+Das Modell ist in \textbf{Modelica} implementiert und läuft auf Dymola/OpenModelica.
+
+\section{Modellzweck}
+
+\subsection{Fragestellung}
+
+Wie autark kann sich ein Haushalt mit PV-Anlage, Batteriespeicher und E-Auto versorgen?
+
+\subsection{Anwendungszweck}
+
+Das Modell dient zur Beantwortung folgender Fragen:
+
+\begin{enumerate}
+\item \textbf{Autarkiegrad berechnen}: Wie viel Prozent des Strombedarfs wird aus eigenen Quellen (PV + Batterie + V2G) gedeckt?
+\item \textbf{Energieflüsse analysieren}: Wie verteilen sich PV-Ertrag, Speicherung und Netznutzung zeitlich?
+\item \textbf{Szenarien vergleichen}: Welche Parameter (Batteriegröße, EMS-Strategie, V2G-Aktivierung) maximieren die Autarkie?
+\item \textbf{Netzbelastung verstehen}: Wie stark belasten Laden/Entladen das Stromnetz?
+\end{enumerate}
+
+Das Modell dient \textbf{nicht} zur Optimierung von Kosten oder wirtschaftlichen Kriterien, sondern zur phänomenologischen Untersuchung der Autarkie.
+
+\section{Modellbeschreibung}
+
+\subsection{Aufbau und Architektur}
+
+Das Gesamtmodell \texttt{HausSystem\_V3} orchestriert vier Hauptkomponenten:
+
+\begin{verbatim}
+InputFunktion_V2 (Zeitprofile)
+       ↓
+  [PV, Last]
+       ↓
+  EMS (Regeleinheit)
+  ↙   ↓   ↘
+Batterie EV Netz
+  ↑   ↓   ↓
+  └─ Feedback (SOC, Präsenz)
+\end{verbatim}
+
+\subsection{Komponenten im Detail}
+
+\subsubsection{InputFunktion\_V2: Zeitgesteuerter Datengenerator}
+
+\begin{itemize}
+\item \textbf{PV-Leistung}: Tabelle mit vier Profilen (Sommer/Winter $\times$ Woche/Wochenende)
+\item \textbf{Haushaltslast}: Ebenso saisonabhängig
+\item \textbf{Eingänge}: \texttt{nutzeSommer} (Boolean), \texttt{nutze5plus2} (Boolean), \texttt{startWochentag} (Integer 1--7), \texttt{istWoche} (Boolean)
+\item \textbf{Ausgänge}: \texttt{P\_PV}, \texttt{P\_Last}
+\item Bei \texttt{nutze5plus2=true}: automatische 5+2-Woche (Mo--Fr Woche, Sa--So Wochenende)
+\end{itemize}
+
+\textbf{Zeitliche Auflösung}: Die Profile werden als 15-Minuten-Rasterwerte mit 97 Stützstellen implementiert (96 Intervalle + Endpunkt).
+
+\textbf{Tageszeit-Berechnung}:
+\begin{equation}
+t_{\text{Tag}} = \operatorname{mod}(\text{time}, 86400 \text{ s})
+\end{equation}
+
+\textbf{Index für 15-Minuten-Raster}:
+\begin{equation}
+i = \left\lfloor \frac{t_{\text{Tag}}}{900 \text{ s}} \right\rfloor + 1, \quad i \in [1, 97]
+\end{equation}
+
+\subsubsection{BatterieEinfach: Hausbatterie}
+
+\begin{itemize}
+\item Speichert/gibt Energie mit Wirkungsgraden ab: $\eta_{\text{laden}} = 0,95$, $\eta_{\text{entladen}} = 0,95$
+\item SOC-Begrenzung: $\text{SOC}_{\min} = 5\,\%$, $\text{SOC}_{\max} = 95\,\%$
+\item \textbf{Eingang}: \texttt{P\_soll} (Sollleistung vom EMS)
+\item \textbf{Ausgänge}: \texttt{P\_batt} (umgesetzte Leistung), \texttt{SOC}
+\end{itemize}
+
+\subsubsection{E\_Auto: Elektrofahrzeug mit Anwesenheitsplan}
+
+\begin{itemize}
+\item Integriert EV-Batterie mit V2G-Logik
+\item Zeitplan: 15-Minuten-Rasterprofil
+  \begin{itemize}
+  \item Unter der Woche: abwesend 07:00--16:00 Uhr
+  \item Wochenende: durchgehend anwesend
+  \end{itemize}
+\item Bei jeder Rückkehr: $\text{SOC}_{\text{set}} = \text{SOC}_{\text{verlassen}} - \text{socAbsenkungRueckkehr}$ (Standard: 10\,\%)
+\item \textbf{Eingang}: \texttt{P\_soll}
+\item \textbf{Ausgänge}: \texttt{SOC\_EV}, \texttt{P\_EV}, \texttt{EV\_present\_out}
+\end{itemize}
+
+\subsubsection{EMS: Energy Management System}
+
+Das EMS implementiert eine Prioritätskaskade:
+
+\begin{enumerate}
+\item \textbf{Priorität 1 -- Hausbatterie}:
+  \begin{itemize}
+  \item Laden bei Überschuss und $\text{SOC}_{\text{Batt}} < 80\,\%$
+  \item Entladen bei Defizit und $\text{SOC}_{\text{Batt}} > 5\,\%$
+  \end{itemize}
+\item \textbf{Priorität 2 -- EV-Laden}:
+  \begin{itemize}
+  \item Bei Anwesenheit und $\text{SOC}_{\text{EV}} < 30\,\%$: aktives Nachladen (ggf. mit Netzbezug)
+  \item Oberhalb: nur bei Rest-Überschuss laden
+  \end{itemize}
+\item \textbf{Priorität 3 -- V2G}:
+  \begin{itemize}
+  \item Nur wenn: Hausbatterie leer, \texttt{v2gAktiv=true}, EV anwesend, $\text{SOC}_{\text{EV}} \geq 60\,\%$
+  \end{itemize}
+\item \textbf{Restausgleich}: Netzimport/Export
+\end{enumerate}
+
+\subsection{Autarkiegrad-Berechnung}
+
+Das EMS berechnet bei jedem Zeitschritt:
+\begin{equation}
+\text{Autarkie}(t) = 100\,\% \times \left(1 - \frac{\max(P_{\text{Grid}}, 0)}{P_{\text{Last}}}\right)
+\end{equation}
+
+Über den gesamten Simulationszeitraum wird die \textbf{kumulierte Autarkie} durch Integration berechnet:
+
+\begin{equation}
+\text{Autarkie}_{\text{kumuliert}} = 100\,\% \times \left(1 - \frac{\sum_{\text{t}} P_{\text{Netz-Import}} \cdot \Delta t}{\sum_{\text{t}} P_{\text{Last}} \cdot \Delta t}\right)
+\end{equation}
+
+Dies stellt das integrale Verhältnis von Gesamtnetzbezug zu Gesamtverbrauch dar und ist der \textbf{Hauptkennwert} für die Autarkie-Untersuchung.
+
+\section{Modellverkuerzung}
+
+\subsection{Weggelassene Aspekte}
+
+\begin{itemize}
+\item \textbf{Thermische Modelle}: Heizung/Kühlung des Hauses
+\item \textbf{Netzstabilität}: Keine Frequenz-/Spannungsregelung
+\item \textbf{Kosten und Tarife}: Keine dynamischen Strompreise
+\item \textbf{Alterung}: Keine Degradation von Batterien über Zeit
+\item \textbf{Schnelle Dynamiken}: Keine Netzwerk-Transiente ($< 1$ Sekunde)
+\end{itemize}
+
+\subsection{Modellierte Aspekte und Abstraktionsgrad}
+
+\begin{table}[h]
+\caption{Abstraktionsgrad nach Modellierungsaspekt}
+\centering
+\begin{tabular}{p{3cm}p{3cm}p{3cm}}
+\toprule
+\textbf{Aspekt} & \textbf{Grad} & \textbf{Bemerkung} \\
+\midrule
+PV-Ertrag & Zeitliche Tabelle & Keine Temperaturabhängigkeit, keine Verschattung \\
+Haushaltslast & Tabellenprofile & Vereinfachte Profile (Woche/Wochenende, Saison) \\
+Batterien & Energiebilanz (1. Ord.) & Konstante Wirkungsgrade, keine Temperatur \\
+Laden/Entladen & Leistungsbegrenzer & SOC-abhängig, V2G-konditioniert \\
+Netzanbindung & Ein/Aus-Begrenzer & Import/Export-Maxima, keine Impedanz \\
+EMS-Regelung & Heuristische Kaskade & Nicht-optimal, aber interpretierbar \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Annahmen und Voraussetzungen}
+
+\begin{enumerate}
+\item \textbf{Perfekte Vorhersage}: EMS kennt zukünftige PV- und Lasten
+\item \textbf{Konstante Wirkungsgrade}: 95\,\% für Laden, 95\,\% für Entladen
+\item \textbf{Keine Selbstentladung}: Batterien verlieren keine Energie im Leerlauf
+\item \textbf{Sofortige Schaltung}: Ideal schnelle Übergänge ohne Transiente
+\item \textbf{Deterministische EV-Präsenz}: 15-Minuten-Rasterprofil mit fester Wochenlogik
+\item \textbf{Harte SOC-Limits}: Unter 5\,\% oder über 95\,\% unerreichbar
+\item \textbf{Unbegrenzte Netzanbindung}: Frequenz/Spannung konstant, kein Blackout-Risiko
+\end{enumerate}
+
+\section{Loeser- und Outputeinstellungen}
+
+\subsection{Simulationsparameter}
+
+\begin{verbatim}
+experiment(
+  StartTime = 0,
+  StopTime = 604800,        // 7 Tage
+  Tolerance = 0.0001
+);
+\end{verbatim}
+
+\subsection{Begründung der Einstellungen}
+
+\begin{itemize}
+\item \textbf{StopTime = 604800 s}: Entspricht 7 Tagen, automatisch unterbrochen durch \texttt{terminate()} bei Zielzeit
+\item \textbf{Tolerance = 0.0001}: Genauigkeit für Energiebilanzen ($< 0,01\,\%$ Fehler)
+\item \textbf{Automatische Dauer}: 
+  \begin{itemize}
+  \item \texttt{nutze5plus2=true} $\Rightarrow$ 7 Tage
+  \item \texttt{nutze5plus2=false} $\Rightarrow$ 1 Tag
+  \end{itemize}
+\end{itemize}
+
+\section{Ergebnisse und Interpretation}
+
+\subsection{Typische Ausgabekanäle}
+
+\begin{table}[h]
+\caption{Modell-Ausgänge und typische Wertebereiche}
+\centering
+\begin{tabular}{lccl}
+\toprule
+\textbf{Ausgang} & \textbf{Einheit} & \textbf{Bereich} & \textbf{Bedeutung} \\
+\midrule
+\texttt{P\_PV\_out} & W & 0--7500 & PV-Leistung \\
+\texttt{P\_Last\_out} & W & 100--6000 & Haushaltslast \\
+\texttt{SOC\_Batt\_out} & -- & 0,05--0,95 & Batterie-SOC \\
+\texttt{SOC\_EV\_out} & -- & 0,1--0,95 & EV-Batterie-SOC \\
+\texttt{P\_Batt\_soll} & W & $\pm$3000 & Batterie-Sollleistung \\
+\texttt{P\_EV\_soll} & W & $\pm$11000 & EV-Sollleistung \\
+\texttt{P\_Grid\_soll} & W & $\pm$6000/10000 & Netzausgleich \\
+\texttt{Autarkie} & \% & 0--100 & Momentaner Autarkiegrad \\
+\texttt{Autarkie\_kumuliert} & \% & 0--100 & \textbf{Kumulierte Autarkie} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Sinnvollheit der Ergebnisse}
+
+\subsubsection{Autarkiegrad-Verständnis}
+
+\textbf{Momentaner Autarkiegrad} (\texttt{Autarkie}):
+\begin{itemize}
+\item Zeigt an, wie viel des \textbf{aktuellen} Strombedarfs aus eigenen Quellen gedeckt wird
+\item Schwankt stark je nach Tageszeit und Wetter
+\end{itemize}
+
+\textbf{Kumulierter Autarkiegrad} (\texttt{Autarkie\_kumuliert}):
+\begin{itemize}
+\item Finales Verhältnis: Gesamtnetzbezug zu Gesamtverbrauch über die \textbf{gesamte Simulationsdauer}
+\item Dies ist der \textbf{entscheidende Kennwert} zur Beantwortung der Modellzweck-Frage
+\item Verfügbar am Ende der Simulation als Einzelwert
+\end{itemize}
+
+\subsubsection{Physikalische Konsistenz}
+
+\begin{itemize}
+\item \textbf{Energiebilanz}: $\int P_{\text{PV}} \, dt - \int (P_{\text{Last}} - P_{\text{Grid}}) \, dt \approx \int (P_{\text{Batt}} + P_{\text{EV}}) \, dt$ sollte $> 99,9\,\%$ erfüllt sein
+\item \textbf{SOC-Dynamik}: $dSOC/dt < 0$ bei Entladung, $> 0$ bei Ladung
+\item \textbf{Autarkie-Trend}: Höher bei Sommertagen mit hohem PV, niedriger im Winter
+\end{itemize}
+
+\subsubsection{Validierungsmöglichkeiten}
+
+\begin{enumerate}
+\item \textbf{Energiebilanz-Check}: Integral der Leistungen vergleichen
+\item \textbf{SOC-Realismus}: Batterie-Zyklen sollten typischerweise 0,3--0,8, nicht ständig 0,05--0,95
+\item \textbf{V2G-Effekt}: Mit V2G aktiv sollte kumulierte Autarkie höher sein als ohne
+\end{enumerate}
+
+\section{Zusätzliches, Besonderheiten, Auffälligkeiten, Offene Fragen}
+
+\subsection{Besonderheiten}
+
+\begin{itemize}
+\item \textbf{5+2-Woche-Logik}: Automatische Umschaltung zwischen Wochen- und Wochenendprofil basierend auf Simulationstag
+\item \textbf{EV-SOC-Reduktion bei Rückkehr}: Modelliert tägliche Fahrverbräuche durch einfache Prozentualabzüge statt aufwendigem Fahrzyklus-Modell
+\item \textbf{Normierte PV-Profile}: Juni- und Januar-Ertrag basieren auf realen Monatsangaben und werden täglich normiert
+\item \textbf{Kumulierte Autarkie als Hauptmetrik}: Ermöglicht direkte Antwort auf die Modellzweck-Frage
+\end{itemize}
+
+\subsection{Offene Fragen und Limitierungen}
+
+\begin{enumerate}
+\item \textbf{EMS-Optimalität}: Die Prioritätskaskade ist heuristisch, nicht mathematisch optimal. Könnte Modell-Prädiktive Regelung (MPC) bessere Ergebnisse liefern?
+\item \textbf{Längerfristige Szenarien}: Modell läuft 1 oder 7 Tage. Wie verhält sich Autarkie über Wochen/Monate/Jahre?
+\item \textbf{Wetter und Unsicherheit}: Modell nutzt Tagesprofile als Durchschnitte. Real gibt es Variabilität (Regentage, etc.).
+\item \textbf{Kostenoptimierung}: Modell optimiert nicht Kosten, sondern Autarkie. Sind diese Ziele kompatibel?
+\end{enumerate}
+
+\section{Quellenangaben}
+
+\subsection{Datenquellen}
+
+\begin{itemize}
+\item \textbf{Erzeugungs- und Verbrauchsdaten}: Mess- und Betriebsdaten aus dem Elternhaus (spezifischer realer Haushalt)
+\item \textbf{System-Spezifizierung}: Komponenten- und Anlagendaten aus dem realen Haushaltssetup
+\item \textbf{Komponentenparameter}: Prioritär aus Herstellerdatenblättern; fehlende Werte als begründete Annahmen
+\item \textbf{Fahrzeugparameter}: BMW iX2 als Referenzfahrzeug; V2G als Modellannahme
+\end{itemize}
+
+\subsection{Verwendete Bibliotheken}
+
+\begin{itemize}
+\item \texttt{Modelica.Blocks.Interfaces}: Standard-Blockdiagramm-Ports
+\item \texttt{Modelica.Blocks.Sources.TimeTable}: Tabelleninterpolation für zeitabhängige Signale
+\item \texttt{Modelica.Blocks.Logical}: Boolean-Verarbeitung
+\end{itemize}
+
+\subsection{Hilfsmittel und KI-Tools}
+
+\begin{table}[h]
+\caption{Eingesetzte Tools und deren Zweck}
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Tool} & \textbf{Zweck} & \textbf{Nutzung} \\
+\midrule
+GitHub Copilot & Code-Generierung & Modelica-Syntax, Bugfix \\
+ChatGPT-4 & Beratung & EMS-Logik-Design \\
+Dymola & Simulation & Debugger, Validierung \\
+VS Code + Modelica-Ext. & Editor & Syntax-Highlighting \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Empfohlene Literatur}
+
+\begin{itemize}
+\item Weniger, F., Bergner, M., Quaschning, V. (2019): \textit{Sizing of residential PV battery systems}. Solar Energy, Vol. 191, pp. 469--482.
+\item Gupta, A., Saini, M., Sharma, V. (2021): \textit{Vehicle-to-Grid: Challenges and Opportunities}. IEEE Access, Vol. 9, pp. 127\,606--127\,618.
+\item Modelica Association: \textit{Modelica Language Specification v4.0}. \url{www.modelica.org}
+\item VDEW: \textit{Standard-Lastprofile für den Stromverbrauch in Haushalten}. Technische Dokumentation.
+\end{itemize}
+
+\section{Versionshistorie}
+
+\begin{table}[h]
+\caption{Dokumentversionsverlauf}
+\centering
+\begin{tabular}{lll}
+\toprule
+\textbf{Version} & \textbf{Datum} & \textbf{Änderungen} \\
+\midrule
+1.0 & 2026-06-21 & Initiale Dokumentation nach Copilot-Instructions \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\appendix
+
+\section{Technische Implementierung der kumulierten Autarkie}
+
+Die kumulierte Autarkie wird im Modell \texttt{HausSystem\_V3} durch Integration von Energieflüssen berechnet.
+
+\subsection{Integratoren}
+
+\begin{verbatim}
+Real energie_verbrauch_Wh(start=0, fixed=true);
+Real energie_netz_bezug_Wh(start=0, fixed=true);
+\end{verbatim}
+
+\subsection{Integrationsdifferentialgleichungen}
+
+\begin{align}
+\frac{d(\text{energie\_verbrauch\_Wh})}{dt} &= \frac{P_{\text{Last}}}{3600} \, [\text{Wh/s}] \\
+\frac{d(\text{energie\_netz\_bezug\_Wh})}{dt} &= \frac{\max(P_{\text{Grid}}, 0)}{3600} \, [\text{Wh/s}]
+\end{align}
+
+\subsection{Autarkie-Berechnung}
+
+\begin{equation}
+\text{autarkie\_kumuliert} = \begin{cases}
+100 \times (1 - \text{energie\_netz\_bezug\_Wh} / \text{energie\_verbrauch\_Wh}) & \text{wenn} \, \text{energie\_verbrauch\_Wh} > 1 \\
+0 & \text{sonst}
+\end{cases}
+\end{equation}
+
+\subsection{Output}
+
+\texttt{Autarkie\_kumuliert\_out}: Direktes Mapping der berechneten Variablen, verfügbar während der gesamten Simulation und als Endwert nach Simulationsende.
+
+\end{document}

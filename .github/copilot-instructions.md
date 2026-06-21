@@ -16,10 +16,24 @@ Ziel ist die Untersuchung der Autarkie des Haushalts auf Basis eines konsistente
 
 ## Ordnerregeln
 1. Im Ordner `code` darf ausschliesslich Modelica-kompatibler Code in Form von `.md`-Dateien enthalten sein.
-2. Der Ordner `docs` ist ausschliesslich fuer die Projektdokumentation in Markdown vorgesehen.
+2. Im Ordner `docs` können Referenzmaterialien und Entwürfe in Markdown enthalten sein.
+3. Die Hauptdokumentation wird als LaTeX-Dokument (`.tex`) bereitgestellt und folgt der IEEE-Konferenzvorlage aus `latex_template.tex`.
 
-## Pflichtkapitel fuer die Dokumentation in `docs`
-Die folgenden Kapitel sind verpflichtend zu behandeln:
+## Dokumentation
+Die Modellbeschreibung ist in einem LaTeX-Dokument zu verfassen. Der Copilot muss sich dabei stets an die Syntax und Struktur der in `latex_template.tex` vorgegebenen IEEE-Konferenzvorlage halten. Diese dient als beispielhafte Vorlage für alle LaTeX-Dokumente.
+
+Dokumentsprache: **Deutsch**
+
+### Mermaid-Diagramme (verbindliche Vorgehensweise)
+1. Mermaid-Quelldateien liegen ausschliesslich in `docs/diagramme` als `.mmd`.
+2. Gerenderte Diagramme fuer die LaTeX-Einbindung liegen ausschliesslich in `docs/figuren` als `.pdf` (optional zusaetzlich `.png`).
+3. Bei jeder inhaltlichen Aenderung eines Diagramms in Markdown- oder LaTeX-Dokumenten muss die zugehoerige `.mmd`-Datei im Ordner `docs/diagramme` mitgeaendert werden.
+4. Nach Aenderung einer `.mmd`-Datei muessen die Render-Dateien unmittelbar aktualisiert werden mit:
+   - `./scripts/render_mermaid.sh`
+5. Der Copilot darf Diagrammaenderungen nicht nur in `docs/Modellbeschreibung.md` oder nur in `Modellbeschreibung.tex` vornehmen. Quelle der Wahrheit ist immer die `.mmd`-Datei in `docs/diagramme`.
+
+### Pflichtkapitel fuer die LaTeX-Dokumentation
+Die folgenden Kapitel sind verpflichtend als Abschnitte (`\section`) oder Unterabschnitte (`\subsection`) im LaTeX-Dokument zu behandeln:
 
 ## Modellierungsgegenstand
 Was wird modelliert?
