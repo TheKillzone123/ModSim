@@ -58,8 +58,8 @@ model HausSystem_V3
   // ===========================
   parameter Boolean EV_aktiv = true "E_Auto aktivieren"
     annotation (Dialog(group="EV"));
-  parameter Real socAbsenkungRueckkehr = 0.10
-    "SOC-Absenkung bei EV-Rückkehr [0..1], z.B. 0.10 = 10%"
+  parameter Real socAbsenkungRueckkehr = 8300.0/kapazitaet_EV_Wh
+    "SOC-Absenkung bei EV-Rückkehr aus 50 km Pendelweg (8.3 kWh) [0..1]"
     annotation (Dialog(group="EV"));
   parameter Boolean v2gAktiv = false "V2G (Vehicle-to-Grid) aktivieren"
     annotation (Dialog(group="EV"));
@@ -71,7 +71,7 @@ model HausSystem_V3
     annotation (Dialog(group="EV"));
   parameter Real kapazitaet_EV_Wh = 66500 "EV-Kapazität [Wh]"
     annotation (Dialog(group="EV"));
-  parameter Real SOC0_EV = 0.4 "Start-SOC EV [0..1]"
+  parameter Real SOC0_EV = 0.8 "Start-SOC EV zu Wochenbeginn [0..1]"
     annotation (Dialog(group="EV"));
   parameter Real P_wallbox_laden_max = 22000 "Max. Ladeleistung Wallbox SMA EV CHARGER 22 [W]"
     annotation (Dialog(group="EV"));

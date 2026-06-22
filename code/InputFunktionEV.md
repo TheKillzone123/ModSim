@@ -41,23 +41,23 @@ protected
   parameter Integer anzahlPunkte = 97 "96x15min + Endpunkt bei 24h";
 
   // EV-Praesenzprofil im 15-Minuten-Raster (1=anwesend, 0=abwesend)
-  // Woche: 07:00-16:00 abwesend
+  // Woche: 07:00-18:00 abwesend
   parameter Real evPraesenzWoche[anzahlPunkte] = {
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 1,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1, 1
   };
 
-  // Wochenende: durchgehend anwesend
+  // Wochenende: anwesend, aber 10:00-12:00 Uhr abwesend
   parameter Real evPraesenzWochenende[anzahlPunkte] = {
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0,
+    1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
   };
 
   Real zeitImTag "Sekunden im aktuellen Tag [0..86400)";
@@ -67,9 +67,9 @@ protected
   Integer wochentagIndex "1=Mo ... 7=So";
   Boolean istWocheIntern "Interne Auswahl Woche/Wochenende";
   Boolean istWocheStart "Starttyp fuer alternierenden Fallback";
-  Boolean presentIntern "Interner Präsenzzustand";
-  Real socBeimVerlassen(start=0.8) "Gemerkter SOC beim Verlassen";
-  Real soc_hold "SOC-Wert bei Ankunft [0..1]";
+  Boolean presentIntern(start=false, fixed=true) "Interner Präsenzzustand";
+  Real socBeimVerlassen(start=0.8, fixed=true) "Gemerkter SOC beim Verlassen";
+  Real soc_hold(start=0.7, fixed=true) "SOC-Wert bei Ankunft [0..1]";
 
 equation 
   // Tageszeit fuer zyklische Mehrtages-Simulation

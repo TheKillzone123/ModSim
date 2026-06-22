@@ -77,9 +77,9 @@ equation
 
   // 2) NEUE LOGIK: Unterscheidung nach Lade-/Entlade-Richtung
   P_batt = if (P_begrenzt >= 0) then 
-             if (SOC >= SOC_max) then 0 else P_begrenzt
+             if (SOC_intern >= SOC_max) then 0 else P_begrenzt
            else 
-             if (v2gAktiv and SOC > SOC_min) then 
+             if (v2gAktiv and SOC_intern > SOC_min) then 
                P_begrenzt
              else 
                0;

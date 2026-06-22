@@ -141,6 +141,85 @@ t_{\text{Tag}} = \operatorname{mod}(\text{time}, 86400 \text{ s})
 i = \left\lfloor \frac{t_{\text{Tag}}}{900 \text{ s}} \right\rfloor + 1, \quad i \in [1, 97]
 \end{equation}
 
+\textbf{Wochentaglogik für Mehrtagessimulationen:}
+
+\begin{align}
+\text{tagIndex} &= \left\lfloor \frac{\text{time}}{86400 \text{ s}} \right\rfloor \\
+\text{wochentagIndex} &= 1 + \operatorname{mod}(\text{startWochentag} - 1 + \text{tagIndex}, 7)
+\end{align}
+
+Die interne Auswahl \texttt{istWocheIntern} erfolgt dann über:
+\begin{itemize}
+\item \texttt{nutze5plus2=true}: Mo--Fr als Woche (\texttt{wochentagIndex} $\leq 5$), Sa--So als Wochenende
+\item \texttt{nutze5plus2=false}: alternierender Tageswechsel ausgehend von \texttt{istWoche} am Starttag
+\end{itemize}
+
+\textbf{Ausgabeselektion:}
+\begin{align}
+P_{\text{PV}} &= \begin{cases} \texttt{pvSommerW}[i], & \text{nutzeSommer}=\text{true} \\ \texttt{pvWinterW}[i], & \text{nutzeSommer}=\text{false} \end{cases} \\
+P_{\text{Last}} &= \begin{cases} \texttt{lastWocheW}[i], & \text{istWocheIntern}=\text{true} \\ \texttt{lastWochenendeW}[i], & \text{istWocheIntern}=\text{false} \end{cases}
+\end{align}
+
+\textbf{Warum stufig (15-Minuten-Haltewerte) statt Interpolation?}
+
+Die Eingabedaten liegen als diskrete 15-Minuten-Rasterwerte vor. Im Modell werden diese als stückweise konstante Haltewerte (Zero-Order-Hold) verwendet, was zu einer optisch ``abgehackten'' Darstellung führt.
+
+\textbf{Entscheidungsgründe:}
+\begin{itemize}
+\item \textbf{Toolchain-Kompatibilität}: Die zuvor genutzte Tabellenvariante war in der Umgebung nicht robust; direkte Rasterauswahl ist stabil.
+\item \textbf{Wartbarkeit}: Kompakte 24h-Arrays mit 97 Punkten sind einfacher zu pflegen.
+\item \textbf{Deterministisches Verhalten}: EV-Präsenz, Wochenlogik und Last/PV-Umschaltung arbeiten auf demselben Raster.
+\item \textbf{Datennahe Abbildung}: Bei gemittelten 15-Minuten-Messwerten ist stückweise konstant methodisch nachvollziehbar.
+\end{itemize}
+
+\subsubsection{Normierung der PV-Sommererzeugung (Juni)}
+
+Die Sommer-PV-Zeitreihe wird auf den durchschnittlichen Monatsertrag normiert:
+
+Gegeben: Monatsertrag Juni = 1363 kWh, Tage = 31
+
+\begin{equation}
+E_{\text{Tag, Ziel}} = \frac{1363\,\text{kWh}}{31} = 43{,}9677\,\text{kWh/Tag}
+\end{equation}
+
+Aus der ursprünglichen Tabelle: $E_{\text{Tag, alt}} = 41{,}7545\,\text{kWh/Tag}$
+
+Normierungsfaktor:
+\begin{equation}
+f_{\text{Sommer}} = \frac{E_{\text{Tag, Ziel}}}{E_{\text{Tag, alt}}} = 1{,}0530
+\end{equation}
+
+Anwendung auf jeden 15-Minuten-Wert:
+\begin{equation}
+P_{\text{neu}}(t_i) = f_{\text{Sommer}} \cdot P_{\text{alt}}(t_i)
+\end{equation}
+
+Damit entspricht die tägliche Gesamtenergie der Sommerkurve dem normierten Juni-Tagesertrag.
+
+\subsubsection{Normierung der PV-Wintererzeugung (Januar)}
+
+Analog zur Sommernormierung wird auch die Winter-PV-Zeitreihe auf den mittleren Monatsertrag normiert:
+
+Gegeben: Monatsertrag Januar = 165 kWh, Tage = 31
+
+\begin{equation}
+E_{\text{Tag, Ziel}}^{\text{Winter}} = \frac{165\,\text{kWh}}{31} = 5{,}3226\,\text{kWh/Tag}
+\end{equation}
+
+Aus der ursprünglichen Tabelle: $E_{\text{Tag, alt}}^{\text{Winter}} = 17{,}1130\,\text{kWh/Tag}$
+
+Normierungsfaktor:
+\begin{equation}
+f_{\text{Winter}} = \frac{E_{\text{Tag, Ziel}}^{\text{Winter}}}{E_{\text{Tag, alt}}^{\text{Winter}}} = 0{,}3110
+\end{equation}
+
+Anwendung auf jeden 15-Minuten-Wert:
+\begin{equation}
+P_{\text{neu}}^{\text{Winter}}(t_i) = f_{\text{Winter}} \cdot P_{\text{alt}}^{\text{Winter}}(t_i)
+\end{equation}
+
+Damit entspricht die tägliche Gesamtenergie der Winterkurve dem normierten Januar-Tagesertrag.
+
 \subsubsection{BatterieEinfach: Hausbatterie}
 
 \begin{itemize}
@@ -156,10 +235,14 @@ i = \left\lfloor \frac{t_{\text{Tag}}}{900 \text{ s}} \right\rfloor + 1, \quad i
 \item Integriert EV-Batterie mit V2G-Logik
 \item Zeitplan: 15-Minuten-Rasterprofil
   \begin{itemize}
-  \item Unter der Woche: abwesend 07:00--16:00 Uhr
-  \item Wochenende: durchgehend anwesend
+  \item Unter der Woche: abwesend 07:00--18:00 Uhr (gemäß evPraesenzWoche-Profil)
+  \item Wochenende: abwesend 10:00--12:00 Uhr, sonst anwesend
   \end{itemize}
-\item Bei jeder Rückkehr: $\text{SOC}_{\text{set}} = \text{SOC}_{\text{verlassen}} - \text{socAbsenkungRueckkehr}$ (Standard: 10\,\%)
+\item Bei jeder Rückkehr: $\text{SOC}_{\text{set}} = \text{SOC}_{\text{verlassen}} - \text{socAbsenkungRueckkehr}$
+\item Standardannahme für den Rückkehrabzug:
+      50\,km Pendelweg und 16{,}6\,kWh/100\,km (BMW iX2) ergeben
+      $E_{\text{fahrt}}=8{,}3\,\text{kWh}=8300\,\text{Wh}$ und damit
+      $\text{socAbsenkungRueckkehr}=8300/66500\approx 0{,}1248$ (12{,}48\,\%) \cite{BMW_iX2_AT}
 \item \textbf{Eingang}: \texttt{P\_soll}
 \item \textbf{Ausgänge}: \texttt{SOC\_EV}, \texttt{P\_EV}, \texttt{EV\_present\_out}
 \end{itemize}
@@ -224,11 +307,15 @@ Real energie_netz_bezug_Wh(start=0, fixed=true);
 
 \textbf{Ausgabegröße}
 \begin{equation}
-\text{autarkie\_kumuliert} = \begin{cases}
-100 \times (1 - \text{energie\_netz\_bezug\_Wh} / \text{energie\_verbrauch\_Wh}) & \text{wenn} \, \text{energie\_verbrauch\_Wh} > 1 \\
-0 & \text{sonst}
+\text{autarkie\_kumuliert} =
+\begin{cases}
+100\left(1 - \dfrac{E_\mathrm{netz}}{E_\mathrm{verbrauch}}\right), & E_\mathrm{verbrauch} > 1, \\
+0, & \text{sonst}.
 \end{cases}
 \end{equation}
+
+mit $E_\mathrm{netz}=\text{energie\_netz\_bezug\_Wh}$ und
+$E_\mathrm{verbrauch}=\text{energie\_verbrauch\_Wh}$.
 
 Die Variable wird direkt auf \texttt{Autarkie\_kumuliert\_out} ausgegeben und ist waehrend der gesamten Simulation sowie als Endwert verfuegbar.
 
@@ -271,7 +358,7 @@ EMS-Regelung & Heuristische Kaskade & Nicht-optimal, aber interpretierbar \\
 \item \textbf{Konstante Wirkungsgrade}: 95\,\% für Laden, 95\,\% für Entladen
 \item \textbf{Keine Selbstentladung}: Batterien verlieren keine Energie im Leerlauf
 \item \textbf{Sofortige Schaltung}: Ideal schnelle Übergänge ohne Transiente
-\item \textbf{Deterministische EV-Präsenz}: 15-Minuten-Rasterprofil mit fester Wochenlogik
+\item \textbf{Deterministische EV-Präsenz}: 15-Minuten-Rasterprofil mit fester Wochenlogik (Mo--Fr 07:00--18:00 abwesend, Sa--So 10:00--12:00 abwesend)
 \item \textbf{Harte SOC-Limits}: Unter 5\,\% oder über 95\,\% unerreichbar
 \item \textbf{Unbegrenzte Netzanbindung}: Frequenz/Spannung konstant, kein Blackout-Risiko
 \end{enumerate}
@@ -316,9 +403,9 @@ experiment(
 \texttt{P\_Last\_out} & W & 100--6000 & Haushaltslast \\
 \texttt{SOC\_Batt\_out} & -- & 0,05--0,95 & Batterie-SOC \\
 \texttt{SOC\_EV\_out} & -- & 0,1--0,95 & EV-Batterie-SOC \\
-\texttt{P\_Batt\_soll} & W & $\pm$2500 & Batterie-Sollleistung (SBS 2.5) \\
-\texttt{P\_EV\_soll} & W & $\pm$11000 & EV-Sollleistung (effektiv, Wallbox-HW 22 kW) \\
-\texttt{P\_Grid\_soll} & W & $\pm$6000/10000 & Netzausgleich \\
+\texttt{P\_Batt\_soll\_out} & W & $\pm$2500 & Batterie-Sollleistung (SBS 2.5) \\
+\texttt{P\_EV\_soll\_out} & W & $\pm$11000 & EV-Sollleistung (effektiv, Wallbox-HW 22 kW) \\
+\texttt{P\_Grid\_soll\_out} & W & $\pm$10000 & Netzausgleich (bidirektional) \\
 \texttt{Autarkie} & \% & 0--100 & Momentaner Autarkiegrad \\
 \texttt{Autarkie\_kumuliert} & \% & 0--100 & \textbf{Kumulierte Autarkie} \\
 \bottomrule
@@ -362,11 +449,11 @@ experiment(
 
 Alle Varianten verwenden denselben Modellaufbau \texttt{HausSystem\_V3} (Aufbau Z).
 
-\textbf{Gemeinsame Standardparameter (für alle 4 Durchläufe):}
+\item \textbf{Gemeinsame Standardparameter (für alle 4 Durchläufe):}
 \begin{itemize}
 \item Simulationsdauer: 7 Tage (604800 s)
 \item Start-SOC Hausbatterie: 50\,\% (\texttt{SOC0\_Batt = 0.5})
-\item Start-SOC EV-Batterie: 40\,\% (\texttt{SOC0\_EV = 0.4})
+\item Start-SOC EV-Batterie: 80\,\% (\texttt{SOC0\_EV = 0.8})
 \item Hausbatterie: 5,1 kWh, 2,5 kW Laden/Entladen
 \item EV-Ladeleistung effektiv: 11 kW (min aus Wallbox 22 kW und Fahrzeuglimit)
 \item Identische Last- und PV-Tabellenstruktur; nur Saison- und V2G-Parameter variieren
@@ -379,18 +466,9 @@ Alle Varianten verwenden denselben Modellaufbau \texttt{HausSystem\_V3} (Aufbau 
 \item \texttt{v2gAktiv = false}
 \end{itemize}
 
-\begin{figure}[htbp]
-\centering
-\IfFileExists{vergleich_sommer_ohne_v2g.png}{%
-  \includegraphics[width=\columnwidth]{vergleich_sommer_ohne_v2g.png}%
-}{%
-  \fbox{\parbox{0.95\columnwidth}{\centering Platzhalter Ergebnisgraph\\Dateiname: vergleich\_sommer\_ohne\_v2g.png}}
-}
-\caption{Ergebnisgraph: Sommer, ohne V2G}
-\label{fig:vergleich_sommer_ohne_v2g}
-\end{figure}
+Siehe Anhang \ref{fig:vergleich_sommer_ohne_v2g}.
 
-\textbf{Erklärung des Graphen:} Platzhalter fuer eigene Interpretation.
+Die Kurven zeigen ein stabiles Sommerszenario mit hoher PV-Verfugbarkeit und nur moderatem Netzbedarf. Am Ende von Tag 7 erreicht die akkumulierte Autarkie 76,3\,\%, die EV-Batterie liegt bei 83,9\,\% und die Hausbatterie bei 17,4\,\%. Das deutet darauf hin, dass der Haushalt im Sommer bereits ohne V2G weitgehend autark arbeitet und die Speicher am Ende noch deutlich Reserve besitzen.
 
 \subsubsection{Variante 2: Sommer, mit V2G}
 \textbf{Durchlaufspezifische Parameter:}
@@ -399,18 +477,9 @@ Alle Varianten verwenden denselben Modellaufbau \texttt{HausSystem\_V3} (Aufbau 
 \item \texttt{v2gAktiv = true}
 \end{itemize}
 
-\begin{figure}[htbp]
-\centering
-\IfFileExists{vergleich_sommer_mit_v2g.png}{%
-  \includegraphics[width=\columnwidth]{vergleich_sommer_mit_v2g.png}%
-}{%
-  \fbox{\parbox{0.95\columnwidth}{\centering Platzhalter Ergebnisgraph\\Dateiname: vergleich\_sommer\_mit\_v2g.png}}
-}
-\caption{Ergebnisgraph: Sommer, mit V2G}
-\label{fig:vergleich_sommer_mit_v2g}
-\end{figure}
+Siehe Anhang \ref{fig:vergleich_sommer_mit_v2g}.
 
-\textbf{Erklärung des Graphen:} Platzhalter fuer eigene Interpretation.
+Im Vergleich zu Variante 1 ist der Zugewinn durch V2G klein, aber messbar. Die akkumulierte Autarkie steigt auf 77,3\,\%, während die EV-Batterie mit 82,9\,\% nur geringfügig tiefer endet und die Hausbatterie erneut bei 17,4\,\% liegt. V2G verbessert damit im Sommer vor allem den Netzersatz in Randzeiten, ohne den Systemzustand am Ende des Zeitraums wesentlich zu verändern.
 
 \subsubsection{Variante 3: Winter, ohne V2G}
 \textbf{Durchlaufspezifische Parameter:}
@@ -419,18 +488,9 @@ Alle Varianten verwenden denselben Modellaufbau \texttt{HausSystem\_V3} (Aufbau 
 \item \texttt{v2gAktiv = false}
 \end{itemize}
 
-\begin{figure}[htbp]
-\centering
-\IfFileExists{vergleich_winter_ohne_v2g.png}{%
-  \includegraphics[width=\columnwidth]{vergleich_winter_ohne_v2g.png}%
-}{%
-  \fbox{\parbox{0.95\columnwidth}{\centering Platzhalter Ergebnisgraph\\Dateiname: vergleich\_winter\_ohne\_v2g.png}}
-}
-\caption{Ergebnisgraph: Winter, ohne V2G}
-\label{fig:vergleich_winter_ohne_v2g}
-\end{figure}
+Siehe Anhang \ref{fig:vergleich_winter_ohne_v2g}.
 
-\textbf{Erklärung des Graphen:} Platzhalter fuer eigene Interpretation.
+Die Winterkurve zeigt eine deutlich stärkere Netzabhängigkeit und eine raschere Entladung der Speicher. Am Ende von Tag 7 liegt die akkumulierte Autarkie nur bei 24,6\,\%, die EV-Batterie erreicht 30\,\% und die Hausbatterie fällt auf 5\,\% ab. Damit arbeitet das System im Winter nahe an den unteren Speichergrenzen, was den begrenzten PV-Eintrag klar sichtbar macht.
 
 \subsubsection{Variante 4: Winter, mit V2G}
 \textbf{Durchlaufspezifische Parameter:}
@@ -439,18 +499,13 @@ Alle Varianten verwenden denselben Modellaufbau \texttt{HausSystem\_V3} (Aufbau 
 \item \texttt{v2gAktiv = true}
 \end{itemize}
 
-\begin{figure}[htbp]
-\centering
-\IfFileExists{vergleich_winter_mit_v2g.png}{%
-  \includegraphics[width=\columnwidth]{vergleich_winter_mit_v2g.png}%
-}{%
-  \fbox{\parbox{0.95\columnwidth}{\centering Platzhalter Ergebnisgraph\\Dateiname: vergleich\_winter\_mit\_v2g.png}}
-}
-\caption{Ergebnisgraph: Winter, mit V2G}
-\label{fig:vergleich_winter_mit_v2g}
-\end{figure}
+Siehe Anhang \ref{fig:vergleich_winter_mit_v2g}.
 
-\textbf{Erklärung des Graphen:} Platzhalter fuer eigene Interpretation.
+Mit V2G verschiebt sich das Verhalten im Winter kaum zugunsten der Autarkie; die akkumulierte Autarkie sinkt auf 23,3\,\%, während EV- und Hausbatterie jeweils bei 30\,\% bzw. 5\,\% enden. Das deutet darauf hin, dass V2G in diesem Szenario wegen der geringen PV-Verfügbarkeit und der knappen Speicherreserven nur begrenzt wirksam ist und eher um die Mindestgrenzen herum arbeitet.
+
+\subsection{Fazit zu den vier Varianten}
+
+Die Ergebnisse zeigen eine klare Saisonabhängigkeit: Im Sommer erreicht das System mit rund 76--77\,\% eine hohe Autarkie, im Winter dagegen nur etwa 23--25\,\%. V2G bringt im Sommer einen kleinen Mehrwert von 1,0 Prozentpunkten, im Winter hingegen keinen Vorteil, sondern sogar einen leichten Rückgang. Insgesamt ist die Speicher- und PV-Kombination für sommerliche Bedingungen sehr wirksam, während im Winter die begrenzte Erzeugung die Autarkie dominiert und die Speicher am Ende nahe ihrer Mindestgrenzen bleiben.
 
 \section{Zusätzliches, Besonderheiten, Auffälligkeiten, Offene Fragen}
 
@@ -480,7 +535,7 @@ Alle Varianten verwenden denselben Modellaufbau \texttt{HausSystem\_V3} (Aufbau 
 \item \textbf{Erzeugungs- und Verbrauchsdaten}: Mess- und Betriebsdaten aus dem Elternhaus (spezifischer realer Haushalt)
 \item \textbf{System-Spezifizierung}: Komponenten- und Anlagendaten aus dem realen Haushaltssetup
 \item \textbf{Komponentenparameter}: Prioritär aus Herstellerdatenblättern; fehlende Werte als begründete Annahmen
-\item \textbf{Fahrzeugparameter}: BMW iX2 als Referenzfahrzeug; V2G als Modellannahme
+\item \textbf{Fahrzeugparameter}: BMW iX2 als Referenzfahrzeug; V2G als Modellannahme; Verbrauchsannahme gemäß \cite{BMW_iX2_AT}
 \item \textbf{SMA-Hardware-Datenblätter}: siehe Literaturverzeichnis \cite{SMA_HM20_DS,SMA_SBS25_DS,SMA_STP810_DS,SMA_EVC_DS}
 \end{itemize}
 
@@ -488,8 +543,8 @@ Alle Varianten verwenden denselben Modellaufbau \texttt{HausSystem\_V3} (Aufbau 
 
 \begin{itemize}
 \item \texttt{Modelica.Blocks.Interfaces}: Standard-Blockdiagramm-Ports
-\item \texttt{Modelica.Blocks.Sources.TimeTable}: Tabelleninterpolation für zeitabhängige Signale
-\item \texttt{Modelica.Blocks.Logical}: Boolean-Verarbeitung
+\item \texttt{Modelica.Blocks.Logical}: Boolean-Verarbeitung (Switch, Edge-Detector)
+\item \textbf{Anmerkung}: Eingabefunktionen nutzen interne 15-Minuten-Rasterwerte mit direkter Index-Adressierung, nicht \texttt{TimeTable}-Blöcke
 \end{itemize}
 
 \subsection{Hilfsmittel und KI-Tools}
@@ -497,16 +552,16 @@ Alle Varianten verwenden denselben Modellaufbau \texttt{HausSystem\_V3} (Aufbau 
 \begin{table}[h]
 \caption{Eingesetzte Tools und deren Zweck}
 \centering
-\begin{tabular}{lll}
+\footnotesize
+\begin{tabularx}{\columnwidth}{@{}p{2.0cm}p{1.8cm}X@{}}
 \toprule
 \textbf{Tool} & \textbf{Zweck} & \textbf{Nutzung} \\
 \midrule
 GitHub Copilot & Code-Generierung & Modelica-Syntax, Bugfix \\
-ChatGPT-4 & Beratung & EMS-Logik-Design \\
-Dymola & Simulation & Debugger, Validierung \\
+Dymola/OpenModelica & Simulation & Compiler, Debugger, numerische Lösung \\
 VS Code + Modelica-Ext. & Editor & Syntax-Highlighting \\
 \bottomrule
-\end{tabular}
+\end{tabularx}
 \end{table}
 
 \subsection{Literaturverzeichnis}
@@ -531,22 +586,59 @@ abgerufen am 21.06.2026.
 SMA Solar Technology AG, \textit{SMA EV CHARGER -- Datenblatt (EVC-10-DS-de-10)},
 Online verfuegbar unter: \url{https://files.sma.de/downloads/EVC-10-DS-de-10.pdf},
 abgerufen am 21.06.2026.
+
+\bibitem{BMW_iX2_AT}
+BMW Austria, \textit{BMW iX2 xDrive30 -- Technische Daten},
+Online verfuegbar unter: \url{https://www.bmw.at/de/all-models/bmw-i/ix2/bmw-ix2-technische-daten.html/bmw-ix2-xdrive30.bmw},
+abgerufen am 22.06.2026.
 \end{thebibliography}
 
-\section{Versionshistorie}
+\appendix
 
-\begin{table}[h]
-\caption{Dokumentversionsverlauf}
+\section{Ergebnisgraphen der vier Simulationsvarianten}
+
+\begin{figure*}[p]
 \centering
-\begin{tabular}{lll}
-\toprule
-\textbf{Version} & \textbf{Datum} & \textbf{Änderungen} \\
-\midrule
-1.2 & 2026-06-21 & Literatur auf SMA-Dokumente umgestellt, Links aus Fliesstext entfernt, Vergleichssegment fuer 4 Wochenvarianten ergänzt \\
-1.1 & 2026-06-21 & Datenblattabgleich SMA-Hardware, Parameteranpassung, Autarkie-Implementierung in Fliesstext \\
-1.0 & 2026-06-21 & Initiale Dokumentation nach Copilot-Instructions \\
-\bottomrule
-\end{tabular}
-\end{table}
+\IfFileExists{vergleich_sommer_ohne_v2g.png}{%
+  \includegraphics[width=0.95\textwidth]{vergleich_sommer_ohne_v2g.png}%
+}{%
+  \fbox{\parbox{0.90\textwidth}{\centering \large Platzhalter: vergleich\_sommer\_ohne\_v2g.png}}
+}
+\caption{Ergebnisse Variante 1: Sommerszenario ohne V2G -- Energieflüsse, SOC-Profile und Autarkiegrad über 7 Tage}
+\label{fig:vergleich_sommer_ohne_v2g}
+\end{figure*}
+
+\begin{figure*}[p]
+\centering
+\IfFileExists{vergleich_sommer_mit_v2g.png}{%
+  \includegraphics[width=0.95\textwidth]{vergleich_sommer_mit_v2g.png}%
+}{%
+  \fbox{\parbox{0.90\textwidth}{\centering \large Platzhalter: vergleich\_sommer\_mit\_v2g.png}}
+}
+\caption{Ergebnisse Variante 2: Sommerszenario mit V2G -- Energieflüsse, SOC-Profile und Autarkiegrad über 7 Tage}
+\label{fig:vergleich_sommer_mit_v2g}
+\end{figure*}
+
+\begin{figure*}[p]
+\centering
+\IfFileExists{vergleich_winter_ohne_v2g.png}{%
+  \includegraphics[width=0.95\textwidth]{vergleich_winter_ohne_v2g.png}%
+}{%
+  \fbox{\parbox{0.90\textwidth}{\centering \large Platzhalter: vergleich\_winter\_ohne\_v2g.png}}
+}
+\caption{Ergebnisse Variante 3: Winterszenario ohne V2G -- Energieflüsse, SOC-Profile und Autarkiegrad über 7 Tage}
+\label{fig:vergleich_winter_ohne_v2g}
+\end{figure*}
+
+\begin{figure*}[p]
+\centering
+\IfFileExists{vergleich_winter_mit_v2g.png}{%
+  \includegraphics[width=0.95\textwidth]{vergleich_winter_mit_v2g.png}%
+}{%
+  \fbox{\parbox{0.90\textwidth}{\centering \large Platzhalter: vergleich\_winter\_mit\_v2g.png}}
+}
+\caption{Ergebnisse Variante 4: Winterszenario mit V2G -- Energieflüsse, SOC-Profile und Autarkiegrad über 7 Tage}
+\label{fig:vergleich_winter_mit_v2g}
+\end{figure*}
 
 \end{document}

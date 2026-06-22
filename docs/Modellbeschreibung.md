@@ -156,8 +156,8 @@ Bewusster Trade-off:
 #### InputFunktionEV (Praesenz + SOC-Rueckkehrlogik)
 
 - Auch das EV-Profil ist als 15-Minuten-Raster mit `anzahlPunkte = 97` umgesetzt:
-   - `evPraesenzWoche[97]` (07:00-16:00 = abwesend)
-   - `evPraesenzWochenende[97]` (durchgehend anwesend)
+   - `evPraesenzWoche[97]` (07:00-18:00 = abwesend, siehe Kommentar in InputFunktionEV)
+   - `evPraesenzWochenende[97]` (10:00-12:00 = abwesend, sonst anwesend)
 - Die Wochen-/Wochenendumschaltung nutzt dieselbe 5+2-Logik wie `InputFunktion_V2`.
 - Das Praesenzsignal entsteht ueber den jeweils ausgewaehlten Rasterwert (`> 0.5`).
 - Beim Verlassen wird der aktuelle SOC gespeichert.
@@ -166,6 +166,12 @@ Bewusster Trade-off:
 $$
 SOC_{set} = \operatorname{clip}(SOC_{verlassen} - socAbsenkungRueckkehr, 0, 1)
 $$
+
+- Annahme fuer den Rueckkehrabzug im Standardfall:
+   - Strecke je Rueckkehr: 50 km
+   - Verbrauch BMW iX2: 16,6 kWh/100 km
+   - Energie je Strecke: $E_{fahrt} = 50 \cdot 16{,}6/100 = 8{,}3\,\text{kWh} = 8300\,\text{Wh}$
+   - Daraus: $socAbsenkungRueckkehr = 8300/66500 \approx 0{,}1248$
 
 - Damit wird der taegliche Fahrverbrauch durch einen einfachen, robusten Rueckkehrabzug modelliert.
 
@@ -248,11 +254,11 @@ Die Winterwerte wurden entsprechend in der Eingabefunktion ausgetauscht (auf gan
 3. **E_Auto (mit InputFunktionEV)**:
    - Integriert EV-Batterie mit V2G-Logik via `BatterieEinfachV2G`
     - Zeitplan ist als 15-Minuten-Rasterprofil implementiert und parametrierbar über `istWoche` bzw. automatisch über `nutze5plus2`:
-       - Unter der Woche: EV ist von 07:00 bis 16:00 nicht an der Steckdose
-       - Wochenende: EV ist durchgehend an der Steckdose
+       - Unter der Woche: EV ist von 07:00 bis 18:00 nicht an der Steckdose (gemäß evPraesenzWoche-Profil)
+       - Wochenende: EV ist von 10:00 bis 12:00 nicht an der Steckdose
     - Bei jeder Rückkehr wird der SOC relativ zum SOC beim Verlassen reduziert:
        - `SOC_set = SOC_verlassen - socAbsenkungRueckkehr`
-       - Standard: `socAbsenkungRueckkehr = 0,10` (10 Prozentpunkte)
+       - Standard (konfiguriert in HausSystem_V3): `socAbsenkungRueckkehr = 8300/66500 ≈ 0,1248` (aus 50 km Strecke)
    - Inputs: `P_soll` (vom EMS)
    - Outputs: `SOC_EV`, `P_EV`, `EV_present_out`
 
@@ -295,7 +301,7 @@ flowchart TD
 **Standardparameter** (aus HausSystem_V3):
 - Hausbatterie: 5,1 kWh, Start-SOC 50%
 - Hausbatterie-Leistung: 2,5 kW Laden / 2,5 kW Entladen
-- E-Auto: 66,5 kWh, Start-SOC 40%, V2G **deaktiviert** (Standard)
+- E-Auto: 66,5 kWh, Start-SOC 80%, V2G **deaktiviert** (Standard)
 - Ladeleistung EV: 22 kW Wallbox-Hardware, 11 kW effektiv (Fahrzeuglimit)
 - Netz: Max. Import 10 kW, Max. Export 10 kW
 - EV-Ladeschwelle: 1500 W Überschuss
@@ -306,7 +312,7 @@ flowchart TD
 - `startWochentag` (1..7): Starttag der Simulation (1=Mo ... 7=So)
 - `istWoche=true/false`: Starttag-Typ bei `nutze5plus2=false` (danach alternierend pro Tag)
 - `automatischeSimDauer=true/false`: Bei `nutze5plus2=false` automatisch 1 Tag, bei `nutze5plus2=true` 7 Tage
-- `socAbsenkungRueckkehr`: SOC-Absenkung des EV bei Rückkehr (Default 0,10)
+- `socAbsenkungRueckkehr`: SOC-Absenkung des EV bei Rückkehr (Default in HausSystem_V3: 8300/66500 ≈ 0,1248 aus 50 km und 16,6 kWh/100 km)
 - `SOC_EV_min_laden`: Mindest-SOC des EV bei Anwesenheit (Default 0,30), notfalls mit Netzladung
 - `v2gAktiv=true/false`: V2G-Funktionalität
 - `EV_aktiv=true/false`: E-Auto im Haushalt vorhanden
@@ -340,7 +346,7 @@ flowchart TD
 2. **Konstante Wirkungsgrade**: 95% für Laden, 95% für Entladen (keine SOC-, Temperatur- oder Leistungsabhängigkeit)
 3. **Keine Selbstentladung**: Batterien verlieren keine Energie wenn untätig
 4. **Sofortige Schaltung**: Laden/Entladen-Übergänge sind ideal (keine Schalt-Transiente)
-5. **EV-Präsenz deterministisch**: 15-Minuten-Rasterprofil mit fester Wochenlogik (Mo-Fr 07-16h abwesend, Sa-So anwesend)
+5. **EV-Präsenz deterministisch**: 15-Minuten-Rasterprofil mit fester Wochenlogik (Mo-Fr 07-16h abwesend, Sa-So 10-12h abwesend)
 6. **SOC-Limits hart**: Unter 5% oder über 95% ist Energie unerreichbar
 7. **Netzanbindung unbegrenzt**: Netzfrequenz/Spannung sind konstant, kein Blackout-Risiko
 
@@ -393,9 +399,9 @@ Hinweis zur automatischen Simulationsdauer:
 | `P_Last_out` | [W] | Haushaltslast | 100–6000 W |
 | `SOC_Batt_out` | [0..1] | Batterie-Ladezustand | 0,05–0,95 |
 | `SOC_EV_out` | [0..1] | EV-Batterie-SOC | 0,1–0,95 |
-| `P_Batt_soll` | [W] | EMS-Befehl an Batterie | ±2500 W |
-| `P_EV_soll` | [W] | EMS-Befehl an E-Auto | ±11000 W (effektiv, Wallbox 22 kW) |
-| `P_Grid_soll` | [W] | Netzausgleich | ±6000 W (Import) / ±10000 W (Export) |
+| `P_Batt_soll_out` | [W] | EMS-Befehl an Batterie | ±2500 W |
+| `P_EV_soll_out` | [W] | EMS-Befehl an E-Auto | ±11000 W (effektiv, Wallbox 22 kW) |
+| `P_Grid_soll_out` | [W] | Netzausgleich | ±10000 W (Import/Export, beide bidirektional) |
 | `Autarkie` | [%] | **Autarkiegrad (momentan)** | 0–100% |
 | `Autarkie_kumuliert` | [%] | **Autarkiegrad (über Gesamtzeitraum)** | 0–100% |
 
@@ -485,13 +491,13 @@ else
 
 - **EMS-Strategie ist nicht optimal**: Die Heuristik (Batterie vor EV vor Netz) maximiert nicht automatisch Autarkie. Gegenbeispiel: Wenn EV günstig lädt und am nächsten Tag entladen sollte, wird es von Batterie-Priorität verdrängt.
 - **V2G-Aktivierung streng limitiert**: V2G springt nur ein, wenn Hausbatterie leer (SOC ≤ 5%) ist. Das ist zu pessimistisch → echte V2G würde aggressiver nutzten.
-- **Wochenende-Last viel höher** als Wochentag (bis 6 kW vs. 2,5 kW Peak). Das verursacht unerwartete Netznutzung trotz PV.
+- **Wochenende-Last moderater als Wochentag** (Peak ~2,3 kW Wochenende vs. ~2,1 kW Woche in den aktuellen Profilen). Das kann zu unterschiedlicher Netznutzung führen.
 
 ### Offene Fragen / Limitierungen:
 
 1. **Kalibriertheit der PV-/Last-Profile**: Sind die Tabellenwerte repräsentativ für deutschen Haushalt mit 5 kWp PV?
 2. **Optimale EMS-Strategie**: Würde Modellprädiktive Regelung (MPC) oder Reinforcement Learning bessere Autarkie erreichen?
-3. **Multi-Tag-Szenarien**: Modell läuft 24h. Wie verhält sich Autarkie über eine Woche/Monat/Jahr?
+3. **Multi-Tag-Szenarien**: Modell läuft standardmäßig 7 Tage (automatisch bei `nutze5plus2=true`) oder 1 Tag (bei `nutze5plus2=false`). Wie verhält sich Autarkie über Monate/Jahre?
 4. **Netzdienstleistungen**: Könnte das E-Auto Schwarzstart-Fähigkeit oder Frequenzregelung unterstützen?
 5. **Wirtschaftlichkeit**: Bei welchem Batteriepreis amortisiert sich die Kapazitätserweiterung?
 6. **Wettersensitivität**: Wolkenbedeckung, Temperatur, Schneebelag auf PV-Anlage → nicht modelliert.
@@ -506,6 +512,7 @@ else
 - **System-Spezifizierung**: Komponenten- und Anlagendaten aus dem realen Haushaltssetup
 - **Komponentenparameter**: Prioritaer aus Herstellerdatenblaettern; fehlende Werte als begruendete Annahmen (z.B. Wirkungsgrade)
 - **Fahrzeugparameter**: BMW iX2 als Referenzfahrzeug; V2G wird als Modellannahme zugelassen (auch wenn dies fahrzeug-/marktseitig nicht in jedem Setup verfuegbar ist)
+- **BMW iX2 technische Daten (Verbrauch)**: https://www.bmw.at/de/all-models/bmw-i/ix2/bmw-ix2-technische-daten.html/bmw-ix2-xdrive30.bmw
 - **Sunny Home Manager 2.0 Datenblatt**: https://files.sma.de/downloads/HM-20-DS-de-50.pdf
 - **Sunny Boy Storage 2.5 Datenblatt**: https://files.sma.de/downloads/SBS25-1VL-10-DS-de-30.pdf
 - **Sunny Tripower 8.0/10.0 Datenblatt**: https://files.sma.de/downloads/STP8-10-3AV-40-DS-de-40.pdf
@@ -514,8 +521,8 @@ else
 ### Verwendete Bibliotheken:
 
 - **Modelica.Blocks.Interfaces**: Standard-Blockdiagramm-Ports
-- **Modelica.Blocks.Sources.TimeTable**: Tabelleninterpolation für zeitabhängige Signale
 - **Modelica.Blocks.Logical**: Boolean-Verarbeitung (Switch, Edge-Detector)
+- Anmerkung: Eingabefunktionen InputFunktion_V2 und InputFunktionEV nutzen interne 15-Minuten-Raster mit Index-Adressierung, nicht TimeTable-Blöcke
 
 ### Hilfsmittel und KI-Tools:
 
