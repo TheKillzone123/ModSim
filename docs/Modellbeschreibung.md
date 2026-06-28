@@ -476,6 +476,40 @@ else
 - Entsprechen Haushaltslast-Profile (Wochentag/Wochenende) typischen deutschen Haushalten?
 - Ist die EMS-Strategie (Prioritätskaskade) optimal für Autarkie?
 
+### Zusatzmessungen: Halbtagsjob (EV ab 14:00 anwesend)
+
+Für die Zusatzmessungen wurde der EV-Anwesenheitsplan werktags angepasst: Das Fahrzeug ist von 07:00 bis 14:00 abwesend und damit früher für Laden bzw. V2G verfügbar.
+
+#### Variante 5: Sommer, ohne V2G (Halbtagsjob)
+- **Autarkie (kumuliert):** 98,65%
+- **SOC_EV_out am Ende:** 95%
+- **SOC_BAT_out am Ende:** 17,4%
+- **Bilddatei:** `vergleich_sommer_ohne_v2g_halbtags.jpeg`
+
+#### Variante 6: Sommer, mit V2G (Halbtagsjob)
+- **Autarkie (kumuliert):** 100%
+- **SOC_EV_out am Ende:** 95%
+- **SOC_BAT_out am Ende:** 17,4%
+- **Bilddatei:** `vergleich_sommer_mit_v2g_halbtags.jpeg`
+
+#### Variante 7: Winter, ohne V2G (Halbtagsjob)
+- **Autarkie (kumuliert):** 24,6%
+- **SOC_EV_out am Ende:** 30%
+- **SOC_BAT_out am Ende:** 5%
+- **Bilddatei:** `vergleich_winter_ohne_v2g_halbtags.jpeg`
+
+#### Variante 8: Winter, mit V2G (Halbtagsjob)
+- **Autarkie (kumuliert):** 23,3%
+- **SOC_EV_out am Ende:** 30%
+- **SOC_BAT_out am Ende:** 5%
+- **Bilddatei:** `vergleich_winter_mit_v2g_halbtags.jpeg`
+
+### Fazit Teil 2 (Halbtagsmessungen)
+
+Die Zusatzmessungen zeigen einen deutlichen Effekt der früheren EV-Anwesenheit im Sommer: Gegenüber den ursprünglichen Sommerläufen steigt die Autarkie stark auf 98,65% ohne V2G und 100% mit V2G.
+
+Im Winter bleibt der Effekt dagegen vernachlässigbar. Trotz identischer Halbtagsanwesenheit verbleiben die Ergebnisse bei 24,6% ohne V2G und 23,3% mit V2G, sodass die geringe PV-Erzeugung weiterhin den dominanten Engpass darstellt.
+
 ---
 
 ## Zusätzliches, Besonderheiten, Auffälligkeiten, Offene Fragen

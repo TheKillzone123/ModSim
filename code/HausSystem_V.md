@@ -94,7 +94,7 @@ model HausSystem_V3
     nutze5plus2 = nutze5plus2,
     startWochentag = startWochentag,
     istWoche = istWoche)
-    annotation (Placement(transformation(extent={{-140,100},{-100,130}})));
+    annotation (Placement(transformation(extent={{-140,104},{-100,134}})));
 
   BatterieEinfach batterie(
     kapazitaet_Wh = kapazitaet_Batt_Wh,
@@ -105,7 +105,7 @@ model HausSystem_V3
     P_entladen_max = P_batt_entladen_max,
     eta_laden = eta_batt_laden,
     eta_entladen = eta_batt_entladen)
-    annotation (Placement(transformation(extent={{-70,100},{-30,130}})));
+    annotation (Placement(transformation(extent={{46,126},{86,156}})));
 
   E_Auto e_auto(
     EV_aktiv = EV_aktiv,
@@ -117,7 +117,7 @@ model HausSystem_V3
     kapazitaet_Wh = kapazitaet_EV_Wh,
     SOC0 = SOC0_EV,
     P_laden_max = P_ev_laden_effektiv_max)
-    annotation (Placement(transformation(extent={{-70,40},{-30,70}})));
+    annotation (Placement(transformation(extent={{-110,-14},{-70,16}})));
 
   // EMS passend zur "nie gleichzeitig laden/entladen" Version
   EMS ems(
@@ -138,7 +138,7 @@ model HausSystem_V3
     netzAktiv = netzAktiv,
     P_netz_max_import = P_netz_max_import,
     P_netz_max_export = P_netz_max_export)
-    annotation (Placement(transformation(extent={{10,40},{80,110}})));
+    annotation (Placement(transformation(extent={{-36,30},{34,100}})));
 
   // ===========================
   // Ausgänge (MONITORING!)
@@ -161,29 +161,29 @@ model HausSystem_V3
 
   Modelica.Blocks.Interfaces.RealOutput P_Batt_soll_out
     "Batterie Sollleistung [W]"
-    annotation(Placement(transformation(extent={{100,75},{120,85}})));
+    annotation(Placement(transformation(extent={{100,81},{120,91}})));
 
   Modelica.Blocks.Interfaces.RealOutput P_EV_soll_out
     "EV Sollleistung [W]"
-    annotation(Placement(transformation(extent={{100,55},{120,65}})));
+    annotation(Placement(transformation(extent={{100,67},{120,77}})));
 
   Modelica.Blocks.Interfaces.RealOutput P_Grid_soll_out
     "Netzausgleich Sollleistung [W]"
-    annotation(Placement(transformation(extent={{100,35},{120,45}})));
+    annotation(Placement(transformation(extent={{100,53},{120,63}})));
 
   Modelica.Blocks.Interfaces.RealOutput Autarkie_out
   "Autarkiegrad momentan [%]"
-  annotation(Placement(transformation(extent={{100,15},{120,25}})));
+  annotation(Placement(transformation(extent={{100,39},{120,49}})));
 
   Modelica.Blocks.Interfaces.RealOutput Autarkie_kumuliert_out
   "Autarkiegrad über Gesamtzeitraum [%]"
-  annotation(Placement(transformation(extent={{100,-5},{120,5}})));
+  annotation(Placement(transformation(extent={{100,23},{120,33}})));
 
-protected
+protected 
   parameter Real simDauerTag_s = 86400 "1 Tag in Sekunden";
   parameter Real simDauerWoche_s = 604800 "7 Tage in Sekunden";
   Real simEnde_s "Automatisches Simulationsende [s]";
-  
+
   // Energieintegration für Autarkie-Berechnung
   Real energie_verbrauch_Wh(start=0, fixed=true) "Kumulierte Verbrauchsenergie [Wh]";
   Real energie_netz_bezug_Wh(start=0, fixed=true) "Kumulierte Netzbezugsenergie [Wh]";
@@ -203,12 +203,12 @@ equation
   // ===========================
   // Verbrauchte Energie in Wh pro Sekunde
   der(energie_verbrauch_Wh) = inputPV.P_Last / 3600;
-  
+
   // Netzbezugsenergie in Wh pro Sekunde (nur positiv, also Import)
   der(energie_netz_bezug_Wh) = max(ems.P_Grid_soll, 0) / 3600;
-  
+
   // Autarkiegrad über Gesamtzeitraum [%]
-  autarkie_kumuliert = 
+  autarkie_kumuliert =
     if energie_verbrauch_Wh > 1 then 
       100.0 * (1.0 - energie_netz_bezug_Wh / energie_verbrauch_Wh)
     else 
@@ -219,75 +219,71 @@ equation
   // ===========================
 
   connect(inputPV.P_PV, ems.P_PV)
-    annotation (Line(points={{-98,125.5},{0,125.5},{0,96},{6.5,96}},
-                     color={255,165,0}, thickness=2));
+    annotation (Line(points={{-98,129.5},{-58,129.5},{-58,94},{-42,94},{-42,93},
+          {-39.5,93}},
+                     color={0,0,0}));
 
   connect(inputPV.P_Last, ems.P_Last)
-    annotation (Line(points={{-98,112},{0,112},{0,89},{6.5,89}},
-                     color={200,0,0}, thickness=2));
+    annotation (Line(points={{-98,116},{-68,116},{-68,79},{-39.5,79}},
+                     color={0,0,0}));
 
   connect(batterie.SOC, ems.SOC_Batt)
-    annotation (Line(points={{-28,112},{0,112},{0,82},{6.5,82}},
-                     color={0,100,200}, thickness=2));
+    annotation (Line(points={{88,138},{88,110},{-54,110},{-54,65},{-39.5,65}},
+                     color={0,0,0}));
 
   connect(e_auto.SOC_EV, ems.SOC_EV)
-    annotation (Line(points={{-28,52},{0,52},{0,75},{6.5,75}},
-                     color={0,150,0}, thickness=2));
-
-  connect(e_auto.EV_present_out, ems.EV_present)
-    annotation (Line(points={{-28,47.5},{0,47.5},{0,68},{6.5,68}},
-                     color={255,0,255}, thickness=2));
+    annotation (Line(points={{-68,-2},{-52,-2},{-52,51},{-39.5,51}},
+                     color={0,0,0}));
 
   // ===========================
   // AUSGÄNGE ← EMS
   // ===========================
 
-  connect(ems.P_Batt_soll, batterie.P_soll)
-    annotation (Line(points={{83.5,96},{90,96},{90,135},{-72,135},{-72,115}},
-                     color={0,100,200}, thickness=2));
-
   connect(ems.P_EV_soll, e_auto.P_soll)
-    annotation (Line(points={{83.5,89},{90,89},{90,20},{-72,20},{-72,55}},
-                     color={0,150,0}, thickness=2));
+    annotation (Line(points={{37.5,72},{48,72},{48,-16},{-120,-16},{-120,1},{-112,
+          1}},       color={0,0,0}));
 
   // ===========================
   // MONITORING AUSGÄNGE
   // ===========================
 
   connect(inputPV.P_PV, P_PV_out)
-    annotation (Line(points={{-98,125.5},{95,125.5},{95,130},{100,130}},
-                     color={255,165,0}, thickness=1));
+    annotation (Line(points={{-98,129.5},{95,129.5},{95,130},{110,130}},
+                     color={0,0,0}));
 
   connect(inputPV.P_Last, P_Last_out)
-    annotation (Line(points={{-98,112},{95,112},{95,120},{100,120}},
-                     color={200,0,0}, thickness=1));
+    annotation (Line(points={{-98,116},{95,116},{95,120},{110,120}},
+                     color={0,0,0}));
 
   connect(batterie.SOC, SOC_Batt_out)
-    annotation (Line(points={{-28,112},{95,112},{95,110},{100,110}},
-                     color={0,100,200}, thickness=1));
+    annotation (Line(points={{88,138},{88,110},{110,110}},
+                     color={0,0,0}));
 
   connect(e_auto.SOC_EV, SOC_EV_out)
-    annotation (Line(points={{-28,52},{95,52},{95,100},{100,100}},
-                     color={0,150,0}, thickness=1));
+    annotation (Line(points={{-68,-2},{68,-2},{68,100},{110,100}},
+                     color={0,0,0}));
 
   connect(ems.P_Batt_soll, P_Batt_soll_out)
-    annotation (Line(points={{83.5,96},{95,96},{95,80},{100,80}},
-                     color={0,100,200}, thickness=1));
+    annotation (Line(points={{37.5,86},{110,86}},
+                     color={0,0,0}));
 
   connect(ems.P_EV_soll, P_EV_soll_out)
-    annotation (Line(points={{83.5,89},{95,89},{95,60},{100,60}},
-                     color={0,150,0}, thickness=1));
+    annotation (Line(points={{37.5,72},{110,72}},
+                     color={0,0,0}));
 
   connect(ems.P_Grid_soll, P_Grid_soll_out)
-    annotation (Line(points={{83.5,82},{95,82},{95,40},{100,40}},
-                     color={255,100,0}, thickness=1));
+    annotation (Line(points={{37.5,58},{110,58}},
+                     color={0,0,0}));
 
   connect(ems.Autarkie, Autarkie_out)
-  annotation (Line(points={{83.5,75},{95,75},{95,20},{100,20}},
-      color={0,200,0}, thickness=1));
+  annotation (Line(points={{37.5,44},{110,44}},
+      color={0,0,0}));
 
   Autarkie_kumuliert_out = autarkie_kumuliert;
-
+  connect(e_auto.EV_present_out, ems.EV_present) annotation (Line(points={{-68,-6.5},
+          {-48,-6.5},{-48,37},{-39.5,37}}, color={255,0,255}));
+  connect(batterie.P_soll, ems.P_Batt_soll) annotation (Line(points={{44,141},{38,
+          141},{38,100},{48,100},{48,86},{37.5,86}}, color={0,0,127}));
   annotation(
     Icon(coordinateSystem(preserveAspectRatio=false),
       graphics={

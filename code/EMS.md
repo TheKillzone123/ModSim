@@ -29,34 +29,34 @@ model EMS
   // Eingänge
   // ===========================
   Modelica.Blocks.Interfaces.RealInput P_PV
-    annotation(Placement(transformation(extent={{-120,60},{-100,80}})));
+    annotation(Placement(transformation(extent={{-120,70},{-100,90}})));
 
   Modelica.Blocks.Interfaces.RealInput P_Last
-    annotation(Placement(transformation(extent={{-120,40},{-100,60}})));
+    annotation(Placement(transformation(extent={{-120,30},{-100,50}})));
 
   Modelica.Blocks.Interfaces.RealInput SOC_Batt
-    annotation(Placement(transformation(extent={{-120,20},{-100,40}})));
+    annotation(Placement(transformation(extent={{-120,-10},{-100,10}})));
 
   Modelica.Blocks.Interfaces.RealInput SOC_EV
-    annotation(Placement(transformation(extent={{-120,0},{-100,20}})));
+    annotation(Placement(transformation(extent={{-120,-50},{-100,-30}})));
 
   Modelica.Blocks.Interfaces.BooleanInput EV_present
-    annotation(Placement(transformation(extent={{-120,-20},{-100,0}})));
+    annotation(Placement(transformation(extent={{-120,-90},{-100,-70}})));
 
   // ===========================
   // Ausgänge
   // ===========================
   Modelica.Blocks.Interfaces.RealOutput P_Batt_soll
-    annotation(Placement(transformation(extent={{100,60},{120,80}})));
+    annotation(Placement(transformation(extent={{100,50},{120,70}})));
 
   Modelica.Blocks.Interfaces.RealOutput P_EV_soll
-    annotation(Placement(transformation(extent={{100,40},{120,60}})));
+    annotation(Placement(transformation(extent={{100,10},{120,30}})));
 
   Modelica.Blocks.Interfaces.RealOutput P_Grid_soll
-    annotation(Placement(transformation(extent={{100,20},{120,40}})));
+    annotation(Placement(transformation(extent={{100,-30},{120,-10}})));
 
   Modelica.Blocks.Interfaces.RealOutput Autarkie
-    annotation(Placement(transformation(extent={{100,0},{120,20}})));
+    annotation(Placement(transformation(extent={{100,-70},{120,-50}})));
 
 protected 
   Real P_uberschuss;
@@ -103,7 +103,7 @@ equation
   //    -> Bei SOC < SOC_EV_min_laden wird erzwungen geladen (auch mit Netzbezug, falls noetig).
   //    -> Sonst nur bei ausreichend Rest-Ueberschuss.
   P_EV_laden =
-    if EV_present and (SOC_EV < SOC_EV_min_laden) then
+    if EV_present and (SOC_EV < SOC_EV_min_laden) then 
       min(P_ev_laden_max, max(P_nach_batt + P_netz_max_import, 0))
     else if (P_nach_batt >= P_ev_schwelle_laden) and EV_present then 
       min(P_nach_batt, P_ev_laden_max)

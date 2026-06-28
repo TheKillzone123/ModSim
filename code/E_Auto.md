@@ -25,23 +25,23 @@ model E_Auto
   // ===========================
   Modelica.Blocks.Interfaces.RealInput P_soll
     "Soll-Leistung vom EMS [W], +laden, -entladen"
-    annotation(Placement(transformation(extent={{-120,-10},{-100,10}}),
-                        iconTransformation(extent={{-120,-10},{-100,10}})));
+    annotation(Placement(transformation(extent={{-140,-10},{-120,10}}),
+                        iconTransformation(extent={{-140,-10},{-120,10}})));
 
   Modelica.Blocks.Interfaces.RealOutput P_EV
     "Umgesetzte EV-Leistung [W]"
-    annotation(Placement(transformation(extent={{100,10},{120,30}}),
-                        iconTransformation(extent={{100,10},{120,30}})));
+    annotation(Placement(transformation(extent={{100,30},{120,50}}),
+                        iconTransformation(extent={{100,30},{120,50}})));
 
   Modelica.Blocks.Interfaces.RealOutput SOC_EV
     "EV-SOC [0..1]"
-    annotation(Placement(transformation(extent={{100,-30},{120,-10}}),
-                        iconTransformation(extent={{100,-30},{120,-10}})));
+    annotation(Placement(transformation(extent={{100,-10},{120,10}}),
+                        iconTransformation(extent={{100,-10},{120,10}})));
 
   Modelica.Blocks.Interfaces.BooleanOutput EV_present_out
     "EV anwesend/angesteckt (für EMS Feedback)"
-    annotation(Placement(transformation(extent={{100,-60},{120,-40}}),
-                        iconTransformation(extent={{100,-60},{120,-40}})));
+    annotation(Placement(transformation(extent={{100,-50},{120,-30}}),
+                        iconTransformation(extent={{100,-50},{120,-30}})));
 
   // ===========================
   // Interne Komponenten
@@ -53,7 +53,7 @@ model E_Auto
     nutze5plus2 = nutze5plus2,
     startWochentag = startWochentag,
     socAbsenkungRueckkehr = socAbsenkungRueckkehr)
-    annotation (Placement(transformation(extent={{-70,40},{-30,80}})));
+    annotation (Placement(transformation(extent={{-88,4},{-14,38}})));
 
   // BatterieEinfach mit V2G-Logik
   BatterieEinfachV2G batt(
@@ -71,43 +71,48 @@ model E_Auto
 equation 
   // Verbindungen
   connect(plan.present, batt.present)
-    annotation (Line(points={{-28,70},{0,70},{0,25},{7.5,25}},color={255,0,255}));
+    annotation (Line(points={{-9.88889,32.3333},{0,32.3333},{0,30},{7.5,30}},
+                                                              color={255,0,255}));
 
   connect(plan.setSOC, batt.setSOC)
-    annotation (Line(points={{-28,55},{-15,55},{-15,35},{7.5,35}},color={255,0,255}));
-
-  connect(plan.SOC_set_val, batt.SOC_set_val)
-    annotation (Line(points={{-28,40},{-20,40},{-20,45},{7.5,45}},color={0,0,127}));
+    annotation (Line(points={{-9.88889,21},{-2,21},{-2,20},{7.5,20}},
+                                                                  color={255,0,255}));
 
   connect(batt.SOC, plan.SOC_aktuell)
-    annotation (Line(points={{62.5,10},{70,10},{70,-20},{-80,-20},{-80,0},{-72.5,0}},
+    annotation (Line(points={{62.5,0},{80,0},{80,46},{-106,46},{-106,20},{-100,20},
+          {-100,21},{-92.1111,21}},
                      color={0,0,127}));
 
   connect(P_soll, batt.P_soll)
-    annotation (Line(points={{-110,0},{0,0},{0,15},{7.5,15}},color={0,0,127}));
+    annotation (Line(points={{-130,0},{7.5,0}},              color={0,0,127}));
 
   // Ausgänge
   connect(batt.SOC, SOC_EV)
-    annotation (Line(points={{62.5,10},{96,10},{96,-20},{110,-20}}, color={0,0,127}));
+    annotation (Line(points={{62.5,0},{80,0},{80,0},{110,0}},       color={0,0,127}));
 
   connect(batt.P_batt, P_EV)
-    annotation (Line(points={{62.5,20},{110,20}}, color={0,0,127}));
+    annotation (Line(points={{62.5,10},{74,10},{74,40},{110,40}},
+                                                  color={0,0,127}));
 
   connect(plan.present, EV_present_out)
-    annotation (Line(points={{-28,70},{-10,70},{-10,-50},{110,-50}}, color={255,0,255}));
+    annotation (Line(points={{-9.88889,32.3333},{0,32.3333},{0,38},{70,38},{70,-40},
+          {110,-40}},                                                color={255,0,255}));
 
+  connect(plan.SOC_set_val, batt.SOC_set_val) annotation (Line(points={{-9.88889,
+          9.66667},{-1.35,9.66667},{-1.35,10},{7.5,10}}, color={0,0,127}));
   annotation(
-    Icon(coordinateSystem(preserveAspectRatio=false),
+    Icon(coordinateSystem(preserveAspectRatio=false, extent={{-120,-100},{100,100}}),
       graphics={
-        Rectangle(extent={{-100,-60},{100,60}},
+        Rectangle(extent={{-120,-60},{100,60}},
                   lineColor={0,0,0}, fillColor={230,230,230},
                   fillPattern=FillPattern.Solid, lineThickness=2),
         Text(extent={{-90,24},{90,50}}, textString="E-Auto",
              fontSize=14, fontStyle=FontStyle.Bold, lineColor={0,0,0}),
         Text(extent={{-96,-6},{-10,10}}, textString="P_soll", lineColor={0,0,127}),
-        Text(extent={{12,12},{96,28}}, textString="P_EV", lineColor={0,0,127}),
-        Text(extent={{12,-28},{98,-12}}, textString="SOC_EV", lineColor={0,0,127}),
-        Text(extent={{12,-50},{96,-38}}, textString="present", lineColor={255,0,255})}),
-    Diagram(coordinateSystem(preserveAspectRatio=false)));
+        Text(extent={{14,32},{98,48}}, textString="P_EV", lineColor={0,0,127}),
+        Text(extent={{12,-8},{98,8}},    textString="SOC_EV", lineColor={0,0,127}),
+        Text(extent={{12,-46},{96,-34}}, textString="present", lineColor={255,0,255})}),
+    Diagram(coordinateSystem(preserveAspectRatio=false, extent={{-120,-100},{100,
+            100}})));
 
 end E_Auto;

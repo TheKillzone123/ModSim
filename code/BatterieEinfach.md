@@ -101,4 +101,3 @@ initial equation
                                                 // SOC rechts unten
 ),  Diagram(coordinateSystem(preserveAspectRatio=false)));
 end BatterieEinfach;
-

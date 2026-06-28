@@ -41,14 +41,14 @@ protected
   parameter Integer anzahlPunkte = 97 "96x15min + Endpunkt bei 24h";
 
   // EV-Praesenzprofil im 15-Minuten-Raster (1=anwesend, 0=abwesend)
-  // Woche: 07:00-18:00 abwesend
+  // Woche: 07:00-14:00 abwesend
   parameter Real evPraesenzWoche[anzahlPunkte] = {
     1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
     1, 1, 1, 1,
     0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-    0, 0, 0, 0, 0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
-    1, 1, 1, 1, 1, 1, 1
+    0, 0, 0, 0,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1,
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1
   };
 
   // Wochenende: anwesend, aber 10:00-12:00 Uhr abwesend

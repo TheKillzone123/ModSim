@@ -72,7 +72,6 @@ Das Modell dient zur Beantwortung folgender Fragen:
 \item \textbf{Autarkiegrad berechnen}: Wie viel Prozent des Strombedarfs wird aus eigenen Quellen (PV + Batterie + V2G) gedeckt?
 \item \textbf{Energieflüsse analysieren}: Wie verteilen sich PV-Ertrag, Speicherung und Netznutzung zeitlich?
 \item \textbf{Szenarien vergleichen}: Welche Parameter (Batteriegröße, EMS-Strategie, V2G-Aktivierung) maximieren die Autarkie?
-\item \textbf{Netzbelastung verstehen}: Wie stark belasten Laden/Entladen das Stromnetz?
 \end{enumerate}
 
 Das Modell dient \textbf{nicht} zur Optimierung von Kosten oder wirtschaftlichen Kriterien, sondern zur phänomenologischen Untersuchung der Autarkie.
@@ -81,7 +80,7 @@ Das Modell dient \textbf{nicht} zur Optimierung von Kosten oder wirtschaftlichen
 
 \subsection{Systemarchitektur und Komponenten}
 
-Das Gesamtmodell \texttt{HausSystem\_V3} verbindet vier Funktionsblöcke: die Eingangsgeneratoren \texttt{InputFunktion\_V2} und \texttt{InputFunktionEV}, die Regeleinheit \texttt{EMS}, die Speicher\- und Fahrzeugmodelle sowie den Netzanschluss. Die Architektur ist in Abbildung~\ref{fig:architektur} dargestellt.
+Das Gesamtmodell \texttt{HausSystem\_V3} verbindet vier Funktionsblöcke: die Eingangsgeneratoren \texttt{InputFunktion\_V2} und \texttt{InputFunktionEV}, die Regeleinheit \texttt{EMS}, die Speicher\- und Fahrzeugmodelle sowie den Netzanschluss. Zur Simulation des gesamten haushalts wird diese in diesem Modell gestartet. Die Architektur ist in Abbildung~\ref{fig:architektur} dargestellt.
 
 \begin{figure}[htbp]
 \centering
@@ -92,9 +91,9 @@ Das Gesamtmodell \texttt{HausSystem\_V3} verbindet vier Funktionsblöcke: die Ei
 
 Die Eingangsblöcke liefern PV- und Lastprofile sowie das EV-Präsenzsignal auf einem festen 15-Minuten-Raster. Die Profile sind deterministisch, saisonal getrennt und für eine 5+2-Wochensemantik ausgelegt. Dadurch ist die Zeitbasis für alle Folgelogiken identisch.
 
-Die Hausbatterie ist als idealisiertes Energiespeichermodell mit konstanten Lade- und Entladegrenzen von 2,5 kW und einem zulässigen SOC-Bereich von 5 bis 95\,\% umgesetzt. Das EV-Modell verwendet eine nutzbare Batteriekapazität von 66,5 kWh, einen Start-SOC von 80\,\% und eine effektive Ladeleistung von 11 kW; die Rückkehr wird über einen festen SOC-Abzug modelliert. Der Netzanschluss begrenzt Import und Export auf jeweils 10 kW.
+Die Hausbatterie ist als idealisiertes Energiespeichermodell mit konstanten Lade- und Entladegrenzen von 2,5 kW und einem zulässigen SOC-Bereich von 5 bis 95\,\% umgesetzt. Das EV-Modell verwendet eine nutzbare Batteriekapazität von 66,5 kWh, einen Start-SOC von 80\,\% und eine effektive Ladeleistung von 11 kW. Bei der Rückkehr wird das Fahrzeug über einen festen SOC-Abzug modelliert, basierend auf einer angenommenen gefahrenen Strecke von 50 km. Dies entspricht dem Weg zur Arbeitsstätte und zurück in Kombination mit den WLTP-Angaben des Herstellers \cite{BMW_iX2_AT}. Der SOC-Abzug beträgt dabei $\Delta SOC = \frac{50\,\text{km} \times 16{,}6\,\text{kWh/100\,km}}{66{,}5\,\text{kWh}} \approx 0{,}1248 \approx 12{,}48\,\%$.
 
-Die Regelung übernimmt das EMS. Es bewertet in jedem Zeitschritt zuerst den Zustand der Hausbatterie, danach das EV und zuletzt den Netzbezug bzw. die Einspeisung. Die Logik ist heuristisch, aber transparent: Überschuss wird bevorzugt in die Hausbatterie, danach in das EV gelenkt; bei Defizit wird zunächst die Batterie entladen und bei Bedarf V2G aktiviert.
+Die Regelung übernimmt das EMS. Es bewertet in jedem Zeitschritt zuerst den Zustand der Hausbatterie, danach das EV und zuletzt den Netzbezug bzw. die Einspeisung. Die Logik ist heuristisch, aber transparent. Überschuss wird bevorzugt in die Hausbatterie und danach in das EV gelenkt. Bei Defizit wird zunächst die Batterie entladen und bei Bedarf V2G aktiviert.
 
 \subsection{Simulationsablauf}
 
@@ -119,9 +118,9 @@ Die Simulation folgt einer festen Chronologie:
 
 Die Simulation läuft standardmäßig über 7 Tage bei aktivierter 5+2-Logik und über 1 Tag bei alternierender Tageslogik. Der Löser arbeitet mit 60-Sekunden-Schritten und DASSL als Standardverfahren. Damit bleiben die Tagesprofile stabil abgebildet und die kumulierten Kennwerte direkt vergleichbar.
 
-Die wesentlichen technischen Eigenschaften des Kapitels lassen sich damit auf drei Punkte verdichten: feste Rasterung der Eingangsdaten, priorisierte Leistungszuweisung durch das EMS und rückgekoppelte Berechnung der Autarkie über den gesamten Simulationszeitraum.
+Die wesentlichen technischen Eigenschaften des Modells lassen sich damit auf drei Punkte verdichten: feste Rasterung der Eingangsdaten, priorisierte Leistungszuweisung durch das EMS und rückgekoppelte Berechnung der Autarkie über den gesamten Simulationszeitraum.
 
-\section{Modellverkuerzung}
+\section{Modellverkürzung}
 
 \subsection{Weggelassene Aspekte}
 
@@ -131,6 +130,7 @@ Die wesentlichen technischen Eigenschaften des Kapitels lassen sich damit auf dr
 \item \textbf{Kosten und Tarife}: Keine dynamischen Strompreise
 \item \textbf{Alterung}: Keine Degradation von Batterien über Zeit
 \item \textbf{Schnelle Dynamiken}: Keine Netzwerk-Transiente ($< 1$ Sekunde)
+\item \textbf{Jahreszeitabhängige Lastprofile}: Die verwendeten Haushaltslastprofile sind nicht saisonal differenziert. Der reale Stromverbrauch eines Haushalts liegt im Winter (Heizung, längere Beleuchtung) typischerweise 10--15\,\% höher als im Sommer, was in diesem Modell nicht berücksichtigt wird.
 \end{itemize}
 
 \subsection{Modellierte Aspekte und Abstraktionsgrad}
@@ -143,8 +143,8 @@ Die wesentlichen technischen Eigenschaften des Kapitels lassen sich damit auf dr
 \toprule
 \textbf{Aspekt} & \textbf{Grad} & \textbf{Bemerkung} \\
 \midrule
-PV-Ertrag & Zeitliche Tabelle & Keine Temperaturabhängigkeit, keine Verschattung \\
-Haushaltslast & Tabellenprofile & Vereinfachte Profile (Woche/Wochenende, Saison) \\
+PV-Ertrag & Zeitliche Tabelle & Temperaturabhängigkeit und Verschattung nur indirekt durch realen Anlagenertrag dargestellt \\
+Haushaltslast & Tabellenprofile & Vereinfachte Profile (Woche/Wochenende, Saison, nur einen Standardtag) \\
 Batterien & Energiebilanz (1. Ord.) & Konstante Wirkungsgrade, keine Temperatur \\
 Laden/Entladen & Leistungsbegrenzer & SOC-abhängig, V2G-konditioniert \\
 Netzanbindung & Ein/Aus-Begrenzer & Import/Export-Maxima, keine Impedanz \\
@@ -156,16 +156,17 @@ EMS-Regelung & Heuristische Kaskade & Nicht-optimal, aber interpretierbar \\
 \subsection{Annahmen und Voraussetzungen}
 
 \begin{enumerate}
-\item \textbf{Perfekte Vorhersage}: EMS kennt zukünftige PV- und Lasten
 \item \textbf{Konstante Wirkungsgrade}: 95\,\% für Laden, 95\,\% für Entladen
 \item \textbf{Keine Selbstentladung}: Batterien verlieren keine Energie im Leerlauf
 \item \textbf{Sofortige Schaltung}: Ideal schnelle Übergänge ohne Transiente
-\item \textbf{Deterministische EV-Präsenz}: 15-Minuten-Rasterprofil mit fester Wochenlogik (Mo--Fr 07:00--18:00 abwesend, Sa--So 10:00--12:00 abwesend)
+\item \textbf{Deterministische EV-Präsenz}: 15-Minuten-Rasterprofil mit fester Wochenlogik. Varianten 1--4 mit Mo--Fr 07:00--18:00 abwesend, Varianten 5--8 mit Mo--Fr 07:00--14:00 abwesend, jeweils Sa--So 10:00--12:00 abwesend
 \item \textbf{Harte SOC-Limits}: Unter 5\,\% oder über 95\,\% unerreichbar
 \item \textbf{Unbegrenzte Netzanbindung}: Frequenz/Spannung konstant, kein Blackout-Risiko
+\item \textbf{Normierung der Lastprofile}: Die in der Simulation verwendeten exemplarischen Lastprofile wurden basierend auf realen Jahreserzeugungsdaten des spezifischen Haushalts normiert. Der Jahresstromverbrauch des Haushalts betrug insgesamt 5767\,kWh, davon entfallen 2539\,kWh auf das Laden des Elektrofahrzeugs und 3228\,kWh auf die Haushaltsgeräte und den sonstigen Stromverbrauch. Dies ergibt einen durchschnittlichen täglichen Energieverbrauch (inklusive EV) von etwa 15,8\,kWh/Tag und für den reinen Haushalt von 8,8\,kWh/Tag. Der in der Simulation verwendete exemplarische Durchschnittswert der 7-Tage-Woche beträgt 8,81\,kWh/Tag für den Haushaltsverbrauch, was sehr nah an dieser realen jährlichen Durchschnittsberechnung liegt. Dies validiert die Representativität der verwendeten wöchentlichen Profile für die längerfristige Autarkieanalyse. Detaillierte Darstellungen des Jahresverbrauchs sind in den Abbildungen \ref{fig:jahresverbrauch_gesamt} und \ref{fig:ev_jahresladung} im Anhang zu finden.
+\item \textbf{Normierung der PV-Erzeugungsprofile}: Die Sommer- und Winter-Erzeugungsprofile werden auf die tatsächlichen Monatsertragswerte normiert, um saisonale Schwankungen realitätsnah abzubilden. Der reale Monatsertrag der PV-Anlage beträgt im Juni 1363\,kWh und im Januar 165\,kWh, woraus sich Tagesertragsziele von 43,97\,kWh/Tag (Sommer) und 5,32\,kWh/Tag (Winter) ergeben. Die ursprünglichen exemplarischen 15-Minuten-Profile wurden mit Normierungsfaktoren $f_{\text{Sommer}} \approx 1{,}053$ und $f_{\text{Winter}} \approx 0{,}311$ skaliert, um diese realen Durchschnittswerte zu erreichen. Dadurch wird sichergestellt, dass die Simulation die Jahresdurceschnitte real gemessener Daten widerspiegelt.
 \end{enumerate}
 
-\section{Loeser- und Outputeinstellungen}
+\section{Löser- und Outputeinstellungen}
 
 \subsection{Simulationsparameter}
 
@@ -209,30 +210,32 @@ experiment(
 \texttt{P\_EV\_soll\_out} & W & $\pm$11000 & EV-Sollleistung (effektiv, Wallbox-HW 22 kW) \\
 \texttt{P\_Grid\_soll\_out} & W & $\pm$10000 & Netzausgleich (bidirektional) \\
 \texttt{Autarkie} & \% & 0--100 & Momentaner Autarkiegrad \\
-\texttt{Autarkie\_kumuliert} & \% & 0--100 & \textbf{Kumulierte Autarkie} \\
+\texttt{Autarkie\_\newline kumuliert} & \% & 0--100 & \textbf{Kumulierte\newline Autarkie} \\
 \bottomrule
 \end{tabularx}
 \end{table}
 
 \subsection{Vergleich der Simulationsvarianten (1 Woche je Durchlauf)}
 
-Alle Varianten verwenden denselben Modellaufbau \texttt{HausSystem\_V3} (Aufbau Z).
+Alle Varianten verwenden denselben Modellaufbau \texttt{HausSystem\_V3}.
 
-\item \textbf{Gemeinsame Standardparameter (für alle 4 Durchläufe):}
+\subsubsection{Gemeinsame Standardparameter (für alle 9 Durchläufe):}
 \begin{itemize}
 \item Simulationsdauer: 7 Tage (604800 s)
 \item Start-SOC Hausbatterie: 50\,\% (\texttt{SOC0\_Batt = 0.5})
 \item Start-SOC EV-Batterie: 80\,\% (\texttt{SOC0\_EV = 0.8})
 \item Hausbatterie: 5,1 kWh, 2,5 kW Laden/Entladen
 \item EV-Ladeleistung effektiv: 11 kW (min aus Wallbox 22 kW und Fahrzeuglimit)
-\item Identische Last- und PV-Tabellenstruktur; nur Saison- und V2G-Parameter variieren
+\item Identische Last- und PV-Tabellenstruktur, nur Saison- und V2G-Parameter variieren
 \end{itemize}
 
 \subsubsection{Variante 1: Sommer, ohne V2G}
+
 \textbf{Durchlaufspezifische Parameter:}
 \begin{itemize}
 \item \texttt{nutzeSommer = true}
 \item \texttt{v2gAktiv = false}
+\item EV werktags 07:00--18:00 abwesend (anwesend ab 18:00)
 \end{itemize}
 
 Siehe Anhang \ref{fig:vergleich_sommer_ohne_v2g}.
@@ -244,6 +247,7 @@ Die Darstellung zeigt ein stabiles Sommerszenario mit hoher PV-Deckung und nur m
 \begin{itemize}
 \item \texttt{nutzeSommer = true}
 \item \texttt{v2gAktiv = true}
+\item EV werktags 07:00--18:00 abwesend (anwesend ab 18:00)
 \end{itemize}
 
 Siehe Anhang \ref{fig:vergleich_sommer_mit_v2g}.
@@ -255,6 +259,7 @@ Im Vergleich zu Variante 1 ist der V2G-Effekt klein, aber messbar: Die akkumulie
 \begin{itemize}
 \item \texttt{nutzeSommer = false}
 \item \texttt{v2gAktiv = false}
+\item EV werktags 07:00--18:00 abwesend (anwesend ab 18:00)
 \end{itemize}
 
 Siehe Anhang \ref{fig:vergleich_winter_ohne_v2g}.
@@ -266,17 +271,85 @@ Die Winterdarstellung zeigt eine deutlich stärkere Netzabhängigkeit und einen 
 \begin{itemize}
 \item \texttt{nutzeSommer = false}
 \item \texttt{v2gAktiv = true}
+\item EV werktags 07:00--18:00 abwesend (anwesend ab 18:00)
 \end{itemize}
 
 Siehe Anhang \ref{fig:vergleich_winter_mit_v2g}.
 
 Mit V2G verbessert sich das Winterergebnis nicht, sondern bleibt praktisch auf Niedrigniveau: Die akkumulierte Autarkie liegt bei 23,3\,\%, EV- und Hausbatterie enden wieder bei 30\,\% bzw. 5\,\%. V2G ist unter diesen Bedingungen nur begrenzt wirksam, weil geringe PV-Erzeugung und knappe Speicherreserven den Betrieb dominieren.
 
-\subsection{Fazit zu den vier Varianten}
+\subsubsection{Variante 5: Sommer, ohne V2G (Halbtagsjob)}
+\textbf{Durchlaufspezifische Parameter:}
+\begin{itemize}
+\item \texttt{nutzeSommer = true}
+\item \texttt{v2gAktiv = false}
+\item EV werktags ab 14:00 anwesend
+\end{itemize}
 
-Die vier Varianten zeigen eine klare Saisonabhängigkeit: Im Sommer erreicht das System mit 76,3 bis 77,3\,\% eine hohe Autarkie, im Winter dagegen nur 23,3 bis 24,6\,\%. V2G liefert im Sommer einen kleinen Zusatznutzen von 1,0 Prozentpunkten, im Winter jedoch keinen Vorteil. Insgesamt ist die PV-Speicher-Kombination im Sommer wirksam, waehrend im Winter die geringe Erzeugung die Autarkie begrenzt und beide Speicher am Ende nahe ihrer Untergrenzen liegen.
+Siehe Anhang \ref{fig:vergleich_sommer_ohne_v2g_halbtags}.
 
-\textbf{Bewertung der Ergebnissaussagekraft:} Der kumulierte Autarkiegrad ist das zentrale Ausgabemaß und zeigt direkt das integrale Verhältnis von Gesamtnetzbezug zu Gesamtverbrauch über den Simulationszeitraum -- dies ist der entscheidende Kennwert zur Beantwortung der Modellzweck-Frage. Die Energiebilanz (PV-Erzeugung, Last, Speicherung und Netzflüsse) ist durch die Modellstruktur gewährleistet und sollte zu über 99,9\,\% erfüllt sein. Der SOC-Verlauf ist physikalisch konsistent: bei Entladung ist $dSOC/dt < 0$, bei Ladung $> 0$. Im Sommer zeigen die hohen Autarkiewerte die Wirksamkeit der PV-Kombination mit Speichern; im Winter dominiert die geringe Erzeugung. Eine zentrale Limitation ist der zeitliche Rhythmus des EV-Vorhandenseins: Das Fahrzeug ist werktags während der Spitzenerzeugungszeiten (07:00--18:00) abwesend, weshalb ein großer Teil des Überschusses nicht in die EV-Batterie fließen kann. Dies erklärt die geringe Wirksamkeit von V2G im Sommer und den fehlenden V2G-Vorteil im Winter -- die Speichereffizienz des Fahrzeugs ist durch diesen Anwesenheitsplan grundsätzlich limitiert.
+Mit angepasster EV-Anwesenheit steigt die akkumulierte Autarkie im Sommer ohne V2G auf 98,65\,\%. Die Endwerte liegen bei 95\,\% SOC der EV-Batterie und 17,4\,\% SOC der Hausbatterie.
+
+\subsubsection{Variante 6: Sommer, mit V2G (Halbtagsjob)}
+\textbf{Durchlaufspezifische Parameter:}
+\begin{itemize}
+\item \texttt{nutzeSommer = true}
+\item \texttt{v2gAktiv = true}
+\item EV werktags ab 14:00 anwesend
+\end{itemize}
+
+Siehe Anhang \ref{fig:vergleich_sommer_mit_v2g_halbtags}.
+
+Im Sommer mit V2G wird bei Halbtagsanwesenheit eine akkumulierte Autarkie von 100\,\% erreicht. Die Endwerte bleiben bei 95\,\% SOC der EV-Batterie und 17,4\,\% SOC der Hausbatterie.
+
+\subsubsection{Variante 7: Winter, ohne V2G (Halbtagsjob)}
+\textbf{Durchlaufspezifische Parameter:}
+\begin{itemize}
+\item \texttt{nutzeSommer = false}
+\item \texttt{v2gAktiv = false}
+\item EV werktags ab 14:00 anwesend
+\end{itemize}
+
+Siehe Anhang \ref{fig:vergleich_winter_ohne_v2g_halbtags}.
+
+Im Winter ohne V2G bleibt die akkumulierte Autarkie bei 24,6\,\%. Die Endwerte betragen 30\,\% SOC der EV-Batterie und 5\,\% SOC der Hausbatterie.
+
+\subsubsection{Variante 8: Winter, mit V2G (Halbtagsjob)}
+\textbf{Durchlaufspezifische Parameter:}
+\begin{itemize}
+\item \texttt{nutzeSommer = false}
+\item \texttt{v2gAktiv = true}
+\item EV werktags ab 14:00 anwesend
+\end{itemize}
+
+Siehe Anhang \ref{fig:vergleich_winter_mit_v2g_halbtags}.
+
+Im Winter mit V2G liegt die akkumulierte Autarkie bei 23,3\,\%. Die Endwerte liegen erneut bei 30\,\% SOC der EV-Batterie und 5\,\% SOC der Hausbatterie.
+
+\subsubsection{Variante 9: Sommer, mit V2G (Halbtagsjob, ohne Heimbatterie)}
+\textbf{Durchlaufspezifische Parameter:}
+\begin{itemize}
+\item \texttt{nutzeSommer = true}
+\item \texttt{v2gAktiv = true}
+\item EV werktags ab 14:00 anwesend
+\item Heimbatterie deaktiviert (kein Heimspeicher)
+\end{itemize}
+
+Siehe Anhang \ref{fig:vergleich_sommer_mit_v2g_halbtags_noBat}.
+
+Auch ohne Heimbatterie wird in diesem Sommerfall eine akkumulierte Autarkie von 100\,\% erreicht. Der Endwert der EV-Batterie liegt bei 91\,\%.
+
+\subsection{Finales Fazit aller neun Varianten}
+
+Die Varianten zeigen eine klare und konsistente Saisonabhängigkeit. In den ursprünglichen Varianten 1--4 (EV werktags erst ab 18:00 anwesend) liegt die Autarkie im Sommer bei 76,3 bis 77,3\,\% und im Winter bei 23,3 bis 24,6\,\%. Wird das EV in den Varianten 5--8 bereits ab 14:00 verfügbar, steigt die Sommerautarkie deutlich auf 98,65\,\% ohne V2G und auf 100\,\% mit V2G.
+
+Im Winter bleibt der Effekt der früheren EV-Anwesenheit dagegen vernachlässigbar. Die Ergebnisse bleiben bei 24,6\,\% ohne V2G bzw. 23,3\,\% mit V2G. Damit bleibt die geringe Winter-PV-Erzeugung der dominierende Engpass, während V2G unter diesen Bedingungen keinen zusätzlichen Nutzen liefert und in den vorliegenden Winterläufen sogar leicht darunter liegt.
+
+Der zusätzliche Fall Variante 9 (Sommer, V2G, Halbtagsanwesenheit, ohne Heimbatterie) bestätigt diese Tendenz. Auch ohne Heimspeicher wird 100\,\% Autarkie erreicht, bei einem EV-End-SOC von 91\,\%. Damit ist die Heimbatterie im Sommer bei aktiver V2G-Nutzung und angepasstem EV-Anwesenheitsfenster für das Erreichen der Vollautarkie entbehrlich.
+
+Kernaussage: Eine erhöhte EV-Verfügbarkeit ist ein starker Hebel für die Sommerautarkie, während im Winter primär die Erzeugungsseite limitiert. Die End-SOC-Werte bestätigen dieses Bild. Im Sommer-Halbtagsszenario verbleiben hohe EV-Reserven (95\,\% mit Heimbatterie, 91\,\% ohne Heimbatterie).
+
+\textbf{Bewertung der Ergebnissaussagekraft:} Der kumulierte Autarkiegrad ist das zentrale Ausgabemaß und zeigt direkt das integrale Verhältnis von Gesamtnetzbezug zu Gesamtverbrauch über den Simulationszeitraum. Dies ist der entscheidende Kennwert zur Beantwortung der Modellzweck-Frage. Die Energiebilanz (PV-Erzeugung, Last, Speicherung und Netzflüsse) ist durch die Modellstruktur gewährleistet und sollte zu über 99,9\,\% erfüllt sein. Der SOC-Verlauf ist physikalisch konsistent: bei Entladung ist $dSOC/dt < 0$, bei Ladung $> 0$. Im Sommer zeigen die hohen Autarkiewerte die Wirksamkeit der PV-Kombination mit Speichern, im Winter dominiert die geringe Erzeugung. Eine zentrale Limitation ist der zeitliche Rhythmus des EV-Vorhandenseins. In den Varianten 1--4 ist das Fahrzeug werktags während der Spitzenerzeugungszeiten (07:00--18:00) abwesend, sodass ein großer Teil des Überschusses nicht in die EV-Batterie fließen kann. Die Varianten 5--8 zeigen, dass eine frühere Verfügbarkeit ab 14:00 im Sommer einen starken Zusatznutzen bringt, im Winter jedoch den grundlegenden Erzeugungsmangel nicht kompensiert.
 
 \section{Zusätzliches, Besonderheiten, Auffälligkeiten, Offene Fragen}
 
@@ -285,7 +358,7 @@ Die vier Varianten zeigen eine klare Saisonabhängigkeit: Im Sommer erreicht das
 \begin{itemize}
 \item \textbf{5+2-Woche-Logik}: Automatische Umschaltung zwischen Wochen- und Wochenendprofil basierend auf Simulationstag
 \item \textbf{EV-SOC-Reduktion bei Rückkehr}: Modelliert tägliche Fahrverbräuche durch einfache Prozentualabzüge statt aufwendigem Fahrzyklus-Modell
-\item \textbf{Normierte PV-Profile}: Juni- und Januar-Ertrag basieren auf realen Monatsangaben und werden täglich normiert
+\item \textbf{Normierte PV-Profile}: Juni- und Januar-Ertrag basieren auf realen Monatsangaben und werden auf den Tag normiert
 \item \textbf{Kumulierte Autarkie als Hauptmetrik}: Ermöglicht direkte Antwort auf die Modellzweck-Frage
 \end{itemize}
 
@@ -305,9 +378,10 @@ Die vier Varianten zeigen eine klare Saisonabhängigkeit: Im Sommer erreicht das
 \begin{itemize}
 \item \textbf{Erzeugungs- und Verbrauchsdaten}: Mess- und Betriebsdaten aus dem Elternhaus (spezifischer realer Haushalt)
 \item \textbf{System-Spezifizierung}: Komponenten- und Anlagendaten aus dem realen Haushaltssetup
-\item \textbf{Komponentenparameter}: Prioritär aus Herstellerdatenblättern; fehlende Werte als begründete Annahmen
-\item \textbf{Fahrzeugparameter}: BMW iX2 als Referenzfahrzeug; V2G als Modellannahme; Verbrauchsannahme gemäß \cite{BMW_iX2_AT}
+\item \textbf{Komponentenparameter}: Vorrangig aus Herstellerdatenblättern, fehlende Werte als begründete Annahmen
+\item \textbf{Fahrzeugparameter}: BMW iX2 als Referenzfahrzeug, V2G als Modellannahme, Verbrauchsannahme gemäß \cite{BMW_iX2_AT}
 \item \textbf{SMA-Hardware-Datenblätter}: siehe Literaturverzeichnis \cite{SMA_HM20_DS,SMA_SBS25_DS,SMA_STP810_DS,SMA_EVC_DS}
+\item \textbf{Projekt-Repository}: GitHub-Repository des Simulationsmodells \cite{ModSimRepo}
 \end{itemize}
 
 \subsection{Verwendete Bibliotheken}
@@ -329,7 +403,7 @@ Die vier Varianten zeigen eine klare Saisonabhängigkeit: Im Sommer erreicht das
 \textbf{Tool} & \textbf{Zweck} & \textbf{Nutzung} \\
 \midrule
 GitHub Copilot & Code-Generierung & Modelica-Syntax, Bugfix \\
-Dymola/OpenModelica & Simulation & Compiler, Debugger, numerische Lösung \\
+Dymola/\newline OpenModelica & Simulation & Compiler, Debugger, numerische Lösung \\
 VS Code + Modelica-Ext. & Editor & Syntax-Highlighting \\
 \bottomrule
 \end{tabularx}
@@ -339,29 +413,34 @@ VS Code + Modelica-Ext. & Editor & Syntax-Highlighting \\
 
 \begin{thebibliography}{00}
 \bibitem{SMA_HM20_DS}
-SMA Solar Technology AG, \textit{Sunny Home Manager 2.0 -- Datenblatt (HM-20-DS-de-50)},
-Online verfuegbar unter: \url{https://files.sma.de/downloads/HM-20-DS-de-50.pdf},
+SMA Solar Technology AG, \textit{Sunny Home Manager 2.0: Datenblatt (HM-20-DS-de-50)},
+Online verfügbar unter: \url{https://files.sma.de/downloads/HM-20-DS-de-50.pdf},
 abgerufen am 21.06.2026.
 
 \bibitem{SMA_SBS25_DS}
-SMA Solar Technology AG, \textit{Sunny Boy Storage 2.5 -- Datenblatt (SBS25-1VL-10-DS-de-30)},
-Online verfuegbar unter: \url{https://files.sma.de/downloads/SBS25-1VL-10-DS-de-30.pdf},
+SMA Solar Technology AG, \textit{Sunny Boy Storage 2.5: Datenblatt (SBS25-1VL-10-DS-de-30)},
+Online verfügbar unter: \url{https://files.sma.de/downloads/SBS25-1VL-10-DS-de-30.pdf},
 abgerufen am 21.06.2026.
 
 \bibitem{SMA_STP810_DS}
-SMA Solar Technology AG, \textit{Sunny Tripower 8.0/10.0 -- Datenblatt (STP8-10-3AV-40-DS-de-40)},
-Online verfuegbar unter: \url{https://files.sma.de/downloads/STP8-10-3AV-40-DS-de-40.pdf},
+SMA Solar Technology AG, \textit{Sunny Tripower 8.0/10.0: Datenblatt (STP8-10-3AV-40-DS-de-40)},
+Online verfügbar unter: \url{https://files.sma.de/downloads/STP8-10-3AV-40-DS-de-40.pdf},
 abgerufen am 21.06.2026.
 
 \bibitem{SMA_EVC_DS}
-SMA Solar Technology AG, \textit{SMA EV CHARGER -- Datenblatt (EVC-10-DS-de-10)},
-Online verfuegbar unter: \url{https://files.sma.de/downloads/EVC-10-DS-de-10.pdf},
+SMA Solar Technology AG, \textit{SMA EV CHARGER: Datenblatt (EVC-10-DS-de-10)},
+Online verfügbar unter: \url{https://files.sma.de/downloads/EVC-10-DS-de-10.pdf},
 abgerufen am 21.06.2026.
 
 \bibitem{BMW_iX2_AT}
-BMW Austria, \textit{BMW iX2 xDrive30 -- Technische Daten},
-Online verfuegbar unter: \url{https://www.bmw.at/de/all-models/bmw-i/ix2/bmw-ix2-technische-daten.html/bmw-ix2-xdrive30.bmw},
+BMW Austria, \textit{BMW iX2 xDrive30: Technische Daten},
+Online verfügbar unter: \url{https://www.bmw.at/de/all-models/bmw-i/ix2/bmw-ix2-technische-daten.html/bmw-ix2-xdrive30.bmw},
 abgerufen am 22.06.2026.
+
+\bibitem{ModSimRepo}
+TheKillzone123, \textit{ModSim: Modellierung der Haushalts-Autarkie},
+GitHub-Repository, Online verfügbar unter: \url{https://github.com/TheKillzone123/ModSim},
+abgerufen am 28.06.2026.
 \end{thebibliography}
 
 \appendix
@@ -370,46 +449,83 @@ abgerufen am 22.06.2026.
 
 \begin{figure*}[p]
 \centering
-\IfFileExists{vergleich_sommer_ohne_v2g.png}{%
-  \includegraphics[width=0.95\textwidth]{vergleich_sommer_ohne_v2g.png}%
-}{%
-  \fbox{\parbox{0.90\textwidth}{\centering \large Platzhalter: vergleich\_sommer\_ohne\_v2g.png}}
-}
-\caption{Ergebnisse Variante 1: Sommerszenario ohne V2G -- Energieflüsse, SOC-Profile und Autarkiegrad über 7 Tage}
+\includegraphics[width=0.95\textwidth]{vergleich_sommer_ohne_v2g.png}
+\caption{Ergebnisse Variante 1: Sommerszenario ohne V2G, Energieflüsse, SOC-Profile und Autarkiegrad über 7 Tage}
 \label{fig:vergleich_sommer_ohne_v2g}
 \end{figure*}
 
 \begin{figure*}[p]
 \centering
-\IfFileExists{vergleich_sommer_mit_v2g.png}{%
-  \includegraphics[width=0.95\textwidth]{vergleich_sommer_mit_v2g.png}%
-}{%
-  \fbox{\parbox{0.90\textwidth}{\centering \large Platzhalter: vergleich\_sommer\_mit\_v2g.png}}
-}
-\caption{Ergebnisse Variante 2: Sommerszenario mit V2G -- Energieflüsse, SOC-Profile und Autarkiegrad über 7 Tage}
+\includegraphics[width=0.95\textwidth]{vergleich_sommer_mit_v2g.png}
+\caption{Ergebnisse Variante 2: Sommerszenario mit V2G, Energieflüsse, SOC-Profile und Autarkiegrad über 7 Tage}
 \label{fig:vergleich_sommer_mit_v2g}
 \end{figure*}
 
 \begin{figure*}[p]
 \centering
-\IfFileExists{vergleich_winter_ohne_v2g.png}{%
-  \includegraphics[width=0.95\textwidth]{vergleich_winter_ohne_v2g.png}%
-}{%
-  \fbox{\parbox{0.90\textwidth}{\centering \large Platzhalter: vergleich\_winter\_ohne\_v2g.png}}
-}
-\caption{Ergebnisse Variante 3: Winterszenario ohne V2G -- Energieflüsse, SOC-Profile und Autarkiegrad über 7 Tage}
+\includegraphics[width=0.95\textwidth]{vergleich_winter_ohne_v2g.png}
+\caption{Ergebnisse Variante 3: Winterszenario ohne V2G, Energieflüsse, SOC-Profile und Autarkiegrad über 7 Tage}
 \label{fig:vergleich_winter_ohne_v2g}
 \end{figure*}
 
 \begin{figure*}[p]
 \centering
-\IfFileExists{vergleich_winter_mit_v2g.png}{%
-  \includegraphics[width=0.95\textwidth]{vergleich_winter_mit_v2g.png}%
-}{%
-  \fbox{\parbox{0.90\textwidth}{\centering \large Platzhalter: vergleich\_winter\_mit\_v2g.png}}
-}
-\caption{Ergebnisse Variante 4: Winterszenario mit V2G -- Energieflüsse, SOC-Profile und Autarkiegrad über 7 Tage}
+\includegraphics[width=0.95\textwidth]{vergleich_winter_mit_v2g.png}
+\caption{Ergebnisse Variante 4: Winterszenario mit V2G, Energieflüsse, SOC-Profile und Autarkiegrad über 7 Tage}
 \label{fig:vergleich_winter_mit_v2g}
+\end{figure*}
+
+\section{Ergebnisgraphen der Halbtags-Simulationsvarianten}
+
+\begin{figure*}[p]
+\centering
+\includegraphics[width=0.95\textwidth]{vergleich_sommer_ohne_v2g_halbtags.png}
+\caption{Ergebnisse Variante 5: Sommerszenario ohne V2G (Halbtagsjob), Energieflüsse, SOC-Profile und Autarkiegrad über 7 Tage}
+\label{fig:vergleich_sommer_ohne_v2g_halbtags}
+\end{figure*}
+
+\begin{figure*}[p]
+\centering
+\includegraphics[width=0.95\textwidth]{vergleich_sommer_mit_v2g_halbtags.png}
+\caption{Ergebnisse Variante 6: Sommerszenario mit V2G (Halbtagsjob), Energieflüsse, SOC-Profile und Autarkiegrad über 7 Tage}
+\label{fig:vergleich_sommer_mit_v2g_halbtags}
+\end{figure*}
+
+\begin{figure*}[p]
+\centering
+\includegraphics[width=0.95\textwidth]{vergleich_winter_ohne_v2g_halbtags.png}
+\caption{Ergebnisse Variante 7: Winterszenario ohne V2G (Halbtagsjob), Energieflüsse, SOC-Profile und Autarkiegrad über 7 Tage}
+\label{fig:vergleich_winter_ohne_v2g_halbtags}
+\end{figure*}
+
+\begin{figure*}[p]
+\centering
+\includegraphics[width=0.95\textwidth]{vergleich_winter_mit_v2g_halbtags.png}
+\caption{Ergebnisse Variante 8: Winterszenario mit V2G (Halbtagsjob), Energieflüsse, SOC-Profile und Autarkiegrad über 7 Tage}
+\label{fig:vergleich_winter_mit_v2g_halbtags}
+\end{figure*}
+
+\begin{figure*}[p]
+\centering
+\includegraphics[width=0.95\textwidth]{vergleich_sommer_mit_v2g_halbtags_noBat.png}
+\caption{Ergebnisse Variante 9: Sommerszenario mit V2G (Halbtagsjob, ohne Heimbatterie), Energieflüsse, SOC-Profile und Autarkiegrad über 7 Tage}
+\label{fig:vergleich_sommer_mit_v2g_halbtags_noBat}
+\end{figure*}
+
+\section{Validierungsdaten: Jahresverbrauch und PV-Normierung}
+
+\begin{figure*}[p]
+\centering
+\includegraphics[width=0.95\textwidth]{Haushalt_Jahresverbrauch.png}
+\caption{Jahresstromverbrauch des spezifischen Haushalts: 5767\,kWh Gesamtenergie (2539\,kWh Elektrofahrzeug + 3228\,kWh Haushalt). Durchschnitt: 15,8\,kWh/Tag inklusive EV, 8,8\,kWh/Tag reiner Haushaltsstromverbrauch. Diese Daten validieren die Normierung der Simulationsprofile.}
+\label{fig:jahresverbrauch_gesamt}
+\end{figure*}
+
+\begin{figure*}[p]
+\centering
+\includegraphics[width=0.95\textwidth]{EV_Jahresverbrauch.png}
+\caption{Jahresstromladung des Elektrofahrzeugs (BMW iX2): 2539\,kWh über das Gesamtjahr, entsprechend durchschnittlich 6,95\,kWh/Tag. Verteilung nach Saison und Wochenrythmus zeigt die Struktur der verwendeten EV-Lastprofile in der Simulation.}
+\label{fig:ev_jahresladung}
 \end{figure*}
 
 \end{document}

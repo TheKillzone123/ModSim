@@ -18,46 +18,46 @@ model BatterieEinfachV2G
   Modelica.Blocks.Interfaces.RealInput P_soll
     "Soll-Leistung [W], +laden, -entladen"
     annotation(
-      Placement(transformation(extent={{-120,-10},{-100,10}}),
-                iconTransformation(extent={{-120,-10},{-100,10}})));
+      Placement(transformation(extent={{-120,-70},{-100,-50}}),
+                iconTransformation(extent={{-120,-70},{-100,-50}})));
 
   Modelica.Blocks.Interfaces.BooleanInput present
     "Batterie aktiv/präsent"
     annotation(
-      Placement(transformation(extent={{-120,30},{-100,50}}),
-                iconTransformation(extent={{-120,30},{-100,50}})));
+      Placement(transformation(extent={{-120,50},{-100,70}}),
+                iconTransformation(extent={{-120,50},{-100,70}})));
 
   Modelica.Blocks.Interfaces.BooleanInput setSOC
     "Impuls: SOC bei Ankunft setzen"
     annotation(
-      Placement(transformation(extent={{-120,60},{-100,80}}),
-                iconTransformation(extent={{-120,60},{-100,80}})));
+      Placement(transformation(extent={{-120,10},{-100,30}}),
+                iconTransformation(extent={{-120,10},{-100,30}})));
 
   Modelica.Blocks.Interfaces.RealInput SOC_set_val
     "SOC-Wert bei Ankunft [0..1]"
     annotation(
-      Placement(transformation(extent={{-120,80},{-100,100}}),
-                iconTransformation(extent={{-120,80},{-100,100}})));
+      Placement(transformation(extent={{-120,-30},{-100,-10}}),
+                iconTransformation(extent={{-120,-30},{-100,-10}})));
 
   Modelica.Blocks.Interfaces.RealOutput P_batt
     "Umgesetzte Leistung [W]"
     annotation(
-      Placement(transformation(extent={{100,10},{120,30}}),
-                iconTransformation(extent={{100,10},{120,30}})));
+      Placement(transformation(extent={{100,-30},{120,-10}}),
+                iconTransformation(extent={{100,-30},{120,-10}})));
 
   Modelica.Blocks.Interfaces.RealOutput SOC
     "Ladezustand 0..1"
     annotation(
-      Placement(transformation(extent={{100,-30},{120,-10}}),
-                iconTransformation(extent={{100,-30},{120,-10}})));
+      Placement(transformation(extent={{100,-70},{120,-50}}),
+                iconTransformation(extent={{100,-70},{120,-50}})));
 
 //Debug:
 
 Modelica.Blocks.Interfaces.RealOutput v2gAktiv_check
-  annotation(Placement(transformation(extent={{100,50},{120,70}})));
+  annotation(Placement(transformation(extent={{100,10},{120,30}})));
 
 Modelica.Blocks.Interfaces.RealOutput P_begrenzt_check
-  annotation(Placement(transformation(extent={{100,60},{120,80}})));
+  annotation(Placement(transformation(extent={{100,50},{120,70}})));
 
 
 
@@ -121,18 +121,7 @@ initial equation
                   lineColor={0,0,0}, fillColor={230,230,230},
                   fillPattern=FillPattern.Solid),
         Text(extent={{-90,24},{90,50}},
-             textString="Batterie V2G", textColor={0,0,0}),
-        Text(extent={{-90,-6},{-60,12}}, textString="+/-",
-             textColor={0,0,127}),
-        Ellipse(extent={{-112,12},{-92,-8}},
-                lineColor={0,0,127}, fillColor={200,200,255},
-                fillPattern=FillPattern.Solid),
-        Ellipse(extent={{92,32},{112,12}},
-                lineColor={0,0,127}, fillColor={200,255,200},
-                fillPattern=FillPattern.Solid),
-        Ellipse(extent={{92,-8},{112,-28}},
-                lineColor={0,0,127}, fillColor={255,255,200},
-                fillPattern=FillPattern.Solid)}),
+             textString="Batterie V2G", textColor={0,0,0})}),
     Diagram(coordinateSystem(preserveAspectRatio=false)));
 
 end BatterieEinfachV2G;
