@@ -90,6 +90,7 @@ Das Gesamtmodell \texttt{HausSystem\_V3} verbindet vier Funktionsblöcke: die Ei
 \end{figure}
 
 Die Eingangsblöcke liefern PV- und Lastprofile sowie das EV-Präsenzsignal auf einem festen 15-Minuten-Raster. Die Profile sind deterministisch, saisonal getrennt und für eine 5+2-Wochensemantik ausgelegt. Dadurch ist die Zeitbasis für alle Folgelogiken identisch.
+Die zugrunde liegenden Tagesenergiebilanzen und Lastverläufe sind als Referenz im Anhang dokumentiert (Abbildungen~\ref{fig:eb_2026_01_19_s1} bis \ref{fig:eb_2026_06_06_s3}).
 
 Die Hausbatterie ist als idealisiertes Energiespeichermodell mit konstanten Lade- und Entladegrenzen von 2,5 kW und einem zulässigen SOC-Bereich von 5 bis 95\,\% umgesetzt. Das EV-Modell verwendet eine nutzbare Batteriekapazität von 66,5 kWh, einen Start-SOC von 80\,\% und eine effektive Ladeleistung von 11 kW. Bei der Rückkehr wird das Fahrzeug über einen festen SOC-Abzug modelliert, basierend auf einer angenommenen gefahrenen Strecke von 50 km. Dies entspricht dem Weg zur Arbeitsstätte und zurück in Kombination mit den WLTP-Angaben des Herstellers \cite{BMW_iX2_AT}. Der SOC-Abzug beträgt dabei $\Delta SOC = \frac{50\,\text{km} \times 16{,}6\,\text{kWh/100\,km}}{66{,}5\,\text{kWh}} \approx 0{,}1248 \approx 12{,}48\,\%$.
 
@@ -162,7 +163,7 @@ EMS-Regelung & Heuristische Kaskade & Nicht-optimal, aber interpretierbar \\
 \item \textbf{Deterministische EV-Präsenz}: 15-Minuten-Rasterprofil mit fester Wochenlogik. Varianten 1--4 mit Mo--Fr 07:00--18:00 abwesend, Varianten 5--8 mit Mo--Fr 07:00--14:00 abwesend, jeweils Sa--So 10:00--12:00 abwesend
 \item \textbf{Harte SOC-Limits}: Unter 5\,\% oder über 95\,\% unerreichbar
 \item \textbf{Unbegrenzte Netzanbindung}: Frequenz/Spannung konstant, kein Blackout-Risiko
-\item \textbf{Normierung der Lastprofile}: Die in der Simulation verwendeten exemplarischen Lastprofile wurden basierend auf realen Jahreserzeugungsdaten des spezifischen Haushalts normiert. Der Jahresstromverbrauch des Haushalts betrug insgesamt 5767\,kWh, davon entfallen 2539\,kWh auf das Laden des Elektrofahrzeugs und 3228\,kWh auf die Haushaltsgeräte und den sonstigen Stromverbrauch. Dies ergibt einen durchschnittlichen täglichen Energieverbrauch (inklusive EV) von etwa 15,8\,kWh/Tag und für den reinen Haushalt von 8,8\,kWh/Tag. Der in der Simulation verwendete exemplarische Durchschnittswert der 7-Tage-Woche beträgt 8,81\,kWh/Tag für den Haushaltsverbrauch, was sehr nah an dieser realen jährlichen Durchschnittsberechnung liegt. Dies validiert die Representativität der verwendeten wöchentlichen Profile für die längerfristige Autarkieanalyse. Detaillierte Darstellungen des Jahresverbrauchs sind in den Abbildungen \ref{fig:jahresverbrauch_gesamt} und \ref{fig:ev_jahresladung} im Anhang zu finden.
+\item \textbf{Normierung der Lastprofile}: Die in der Simulation verwendeten exemplarischen Lastprofile wurden basierend auf realen Jahreserzeugungsdaten des spezifischen Haushalts normiert. Der Jahresstromverbrauch des Haushalts betrug insgesamt 5767\,kWh, davon entfallen 2539\,kWh auf das Laden des Elektrofahrzeugs und 3228\,kWh auf die Haushaltsgeräte und den sonstigen Stromverbrauch. Dies ergibt einen durchschnittlichen täglichen Energieverbrauch (inklusive EV) von etwa 15,8\,kWh/Tag und für den reinen Haushalt von 8,8\,kWh/Tag. Der in der Simulation verwendete exemplarische Durchschnittswert der 7-Tage-Woche beträgt 8,81\,kWh/Tag für den Haushaltsverbrauch, was sehr nah an dieser realen jährlichen Durchschnittsberechnung liegt. Dies validiert die Repräsentativität der verwendeten wöchentlichen Profile für die längerfristige Autarkieanalyse. Detaillierte Darstellungen des Jahresverbrauchs sind in den Abbildungen \ref{fig:jahresverbrauch_gesamt} und \ref{fig:ev_jahresladung} sowie ergänzende Tagesenergiebilanzen in den Abbildungen \ref{fig:eb_2026_01_19_s1} bis \ref{fig:eb_2026_06_06_s3} im Anhang zu finden.
 \item \textbf{Normierung der PV-Erzeugungsprofile}: Die Sommer- und Winter-Erzeugungsprofile werden auf die tatsächlichen Monatsertragswerte normiert, um saisonale Schwankungen realitätsnah abzubilden. Der reale Monatsertrag der PV-Anlage beträgt im Juni 1363\,kWh und im Januar 165\,kWh, woraus sich Tagesertragsziele von 43,97\,kWh/Tag (Sommer) und 5,32\,kWh/Tag (Winter) ergeben. Die ursprünglichen exemplarischen 15-Minuten-Profile wurden mit Normierungsfaktoren $f_{\text{Sommer}} \approx 1{,}053$ und $f_{\text{Winter}} \approx 0{,}311$ skaliert, um diese realen Durchschnittswerte zu erreichen. Dadurch wird sichergestellt, dass die Simulation die Jahresdurceschnitte real gemessener Daten widerspiegelt.
 \end{enumerate}
 
@@ -378,10 +379,11 @@ Kernaussage: Eine erhöhte EV-Verfügbarkeit ist ein starker Hebel für die Somm
 \begin{itemize}
 \item \textbf{Erzeugungs- und Verbrauchsdaten}: Mess- und Betriebsdaten aus dem Elternhaus (spezifischer realer Haushalt)
 \item \textbf{System-Spezifizierung}: Komponenten- und Anlagendaten aus dem realen Haushaltssetup
+\item \textbf{Tagesenergiebilanzen und Lastverläufe}: Referenz-Auswertungen vom 19.01.2026 und 06.06.2026, siehe Anhang \ref{app:tagesenergiebilanzen}
 \item \textbf{Komponentenparameter}: Vorrangig aus Herstellerdatenblättern, fehlende Werte als begründete Annahmen
 \item \textbf{Fahrzeugparameter}: BMW iX2 als Referenzfahrzeug, V2G als Modellannahme, Verbrauchsannahme gemäß \cite{BMW_iX2_AT}
 \item \textbf{SMA-Hardware-Datenblätter}: siehe Literaturverzeichnis \cite{SMA_HM20_DS,SMA_SBS25_DS,SMA_STP810_DS,SMA_EVC_DS}
-\item \textbf{Projekt-Repository}: GitHub-Repository des Simulationsmodells \cite{ModSimRepo}
+\item \textbf{Projekt-Repository}: GitHub-Repository des Simulationsmodells, siehe Anhang \ref{app:projekt_repository}
 \end{itemize}
 
 \subsection{Verwendete Bibliotheken}
@@ -436,14 +438,61 @@ abgerufen am 21.06.2026.
 BMW Austria, \textit{BMW iX2 xDrive30: Technische Daten},
 Online verfügbar unter: \url{https://www.bmw.at/de/all-models/bmw-i/ix2/bmw-ix2-technische-daten.html/bmw-ix2-xdrive30.bmw},
 abgerufen am 22.06.2026.
-
-\bibitem{ModSimRepo}
-TheKillzone123, \textit{ModSim: Modellierung der Haushalts-Autarkie},
-GitHub-Repository, Online verfügbar unter: \url{https://github.com/TheKillzone123/ModSim},
-abgerufen am 28.06.2026.
 \end{thebibliography}
 
 \appendix
+
+\section{Projekt-Repository}
+\label{app:projekt_repository}
+Das Simulationsmodell wird im GitHub-Repository \textit{ModSim} gepflegt.
+Online verfügbar unter: \url{https://github.com/TheKillzone123/ModSim},
+abgerufen am 28.06.2026.
+
+\section{Tagesenergiebilanzen und Lastverläufe}
+\label{app:tagesenergiebilanzen}
+Die folgenden Abbildungen dokumentieren zwei exemplarische Tagesauswertungen mit jeweils drei Seiten. Sie dienen als Referenz für die im Modell verwendeten Last- und Energiebilanzannahmen.
+
+\begin{figure*}[p]
+\centering
+\includegraphics[page=1,width=0.95\textwidth]{Energiebilanz_2026_01_19.pdf}
+\caption{Tagesenergiebilanz 19.01.2026, Seite 1/3}
+\label{fig:eb_2026_01_19_s1}
+\end{figure*}
+
+\begin{figure*}[p]
+\centering
+\includegraphics[page=2,width=0.95\textwidth]{Energiebilanz_2026_01_19.pdf}
+\caption{Tagesenergiebilanz 19.01.2026, Seite 2/3}
+\label{fig:eb_2026_01_19_s2}
+\end{figure*}
+
+\begin{figure*}[p]
+\centering
+\includegraphics[page=3,width=0.95\textwidth]{Energiebilanz_2026_01_19.pdf}
+\caption{Tagesenergiebilanz 19.01.2026, Seite 3/3}
+\label{fig:eb_2026_01_19_s3}
+\end{figure*}
+
+\begin{figure*}[p]
+\centering
+\includegraphics[page=1,width=0.95\textwidth]{Energiebilanz_2026_06_06.pdf}
+\caption{Tagesenergiebilanz 06.06.2026, Seite 1/3}
+\label{fig:eb_2026_06_06_s1}
+\end{figure*}
+
+\begin{figure*}[p]
+\centering
+\includegraphics[page=2,width=0.95\textwidth]{Energiebilanz_2026_06_06.pdf}
+\caption{Tagesenergiebilanz 06.06.2026, Seite 2/3}
+\label{fig:eb_2026_06_06_s2}
+\end{figure*}
+
+\begin{figure*}[p]
+\centering
+\includegraphics[page=3,width=0.95\textwidth]{Energiebilanz_2026_06_06.pdf}
+\caption{Tagesenergiebilanz 06.06.2026, Seite 3/3}
+\label{fig:eb_2026_06_06_s3}
+\end{figure*}
 
 \section{Ergebnisgraphen der vier Simulationsvarianten}
 
